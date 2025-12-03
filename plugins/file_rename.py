@@ -51,8 +51,8 @@ from config import Config
 from asyncio import sleep
 import os, time, asyncio
 
-UPLOAD_TEXT = "📤 Cosmic Launch..."
-DOWNLOAD_TEXT = "📥 Precision Fetch..."
+UPLOAD_TEXT = "📤 Uploading file..."
+DOWNLOAD_TEXT = "📥 Downloading file..."
 
 
 app = Client("4gb_FileRenameBot", api_id=Config.API_ID, api_hash=Config.API_HASH, session_string=Config.STRING_SESSION)
