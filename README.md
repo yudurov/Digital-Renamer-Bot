@@ -1,6 +1,6 @@
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
-![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=𝗪𝗘𝗟𝗖𝗢𝗠+𝗧𝗢+𝗗𝗜𝗚𝗜𝗧𝗔𝗟+𝗥𝗘𝗡𝗔𝗠𝗘+𝗕𝗢𝗧!;𝗖𝗥𝗘𝗔𝗧𝗘𝗗+𝗕𝗬+𝗗𝗜𝗚𝗜𝗧𝗔𝗟+𝗕𝗢𝗧𝗭!;𝗜+𝗔𝗠+𝗣𝗢𝗪𝗘𝗥𝗙𝗨𝗟+𝗧𝗚+𝗥𝗘𝗡𝗔𝗠𝗘+𝗕𝗢𝗧!&color=4169E1)
+![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=𝗪𝗘𝗟𝗖𝗢𝗠+𝗧𝗢+𝗗𝗜𝗚𝗜𝗧𝗔𝗟+𝗥𝗘𝗡𝗔𝗠𝗘+𝗕𝗢𝗧!;𝗖𝗥𝗘𝗔𝗧𝗘𝗗+𝗕𝗬+𝗗𝗜𝗚𝗜𝗧𝗔𝗟+𝗕𝗢𝗧𝗭!;𝗜+𝗔𝗠+𝗣𝗢𝗪𝗘𝗥𝗙𝗨𝗟+𝗧𝗚+𝗥𝗘𝗡𝗔𝗠𝗘+𝗕𝗢𝗧!)</p>
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
@@ -11,17 +11,17 @@
 
 <p align="center">
 
-![Fork](https://img.shields.io/github/forks/DigitalBotz/Digital-Rename-Bot?style=for-the-badge)
-![Stars](https://img.shields.io/github/stars/DigitalBotz/Digital-Rename-Bot?color=%23&style=for-the-badge)
-![License](https://img.shields.io/github/license/DigitalBotz/Digital-Rename-Bot?style=for-the-badge)
-![Issues](https://img.shields.io/github/issues/DigitalBotz/Digital-Rename-Bot?style=for-the-badge)
+![Fork](https://img.shields.io/github/forks/Yuilariy/Digital-Rename-Bot?style=for-the-badge)
+![Stars](https://img.shields.io/github/stars/Yuilariy/Digital-Rename-Bot?color=%23&style=for-the-badge)
+![License](https://img.shields.io/github/license/Yuilariy/Digital-Rename-Bot?style=for-the-badge)
+![Issues](https://img.shields.io/github/issues/Yuilariy/Digital-Rename-Bot?style=for-the-badge)
 
 </p>
 
 
 ### Sᴀᴍᴩʟᴇ Bᴏᴛ (Official Digital Rename Bot)
 
-* [Rkn_RenameBot](http://t.me/Rkn_RenameBot)
+* [4GB_RenameBot](https://t.me/digitalfilesrenamebot)
 * [Digital_Rename_Bot](http://t.me/Digital_Rename_Bot)
 
 
@@ -29,12 +29,12 @@
 
 <details><summary>📌 Deploy to Koyeb </summary>
   
-[![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?type=git&repository=github.com/RknDeveloper/Digital-Rename-Bot&env[BOT_TOKEN]&env[API_ID]&env[API_HASH]&env[WEBHOOK]=True&env[ADMIN]&env[DB_URL]&env[DB_NAME]=Rkn-Developer&env[FORCE_SUB]&env[START_PIC]&env[LOG_CHANNEL]=You%20Dont%20Need%20LogChannel%20To%20Remove%20This%20Variable&run_command=python%20bot.py&branch=main&name=rkn-rename) 
+[![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?type=git&repository=github.com/Yuilariy/Digital-Rename-Bot&env[BOT_TOKEN]&env[API_ID]&env[API_HASH]&env[WEBHOOK]=True&env[ADMIN]&env[DB_URL]&env[DB_NAME]=Rkn-Developer&env[FORCE_SUB]&env[START_PIC]&env[LOG_CHANNEL]=You%20Dont%20Need%20LogChannel%20To%20Remove%20This%20Variable&run_command=python%20bot.py&branch=main&name=rkn-rename) 
 </details>
 
 <details><summary>📌 Deploy to Render </summary>
   
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/DigitalBotz/Digital-Rename-Bot)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Yuilariy/Digital-Rename-Bot)
 
 </details>
 
@@ -44,8 +44,63 @@
 
 <details><summary>📌 Deploy to Heroku </summary>
 
-<a href="https://heroku.com/deploy?template=https://github.com/DigitalBotz/Digital-Rename-Bot"><img src="https://img.shields.io/badge/Deploy%20To%20Heroku-black?style=for-the-badge&logo=heroku" width="220" height="38.45"></p></a>
+<a href="https://heroku.com/deploy?template=https://github.com/Yuilariy/Digital-Rename-Bot"><img src="https://img.shields.io/badge/Deploy%20To%20Heroku-black?style=for-the-badge&logo=heroku" width="220" height="38.45"></p></a>
 </details>
+
+### Deploy on VPS
+
+ * Clone the Repo.
+
+```
+git clone https://github.com/yuIlariy/Digital-Rename-Bot
+```
+ * Move to the Repo Folder in the VPS.
+
+```
+cd Digital-Rename-Bot
+```
+ * Inside the cloned folder edit config.py and install the pip, by the following command.
+
+```
+sudo apt install python3-pip
+```
+
+ * Make sure you update your directory once you installed pip
+ ```
+ sudo apt update && apt upgrade -y
+ ```
+ 
+ * Install the required modules using the following command. You may need a virtual environment.
+
+```bash
+python3 -m venv renn
+source renn/bin/activate
+```
+
+```
+pip3 install -r requirements.txt
+```
+
+ * If you want to run the bot 24x7, then use this command to create a nested background environment.
+
+```bash
+screen -S renn
+```
+```bash
+python3 bot.py
+```
+
+Detach: `Ctrl + A`, then `Ctrl + D`  
+
+Resume: 
+```bash
+screen -r renn
+```
+Stop: `Ctrl + C`, then 
+```bash
+screen -S renn -X quit
+```
+
 
 ## Rᴇǫᴜɪʀᴇᴅ Cᴏɴғɪɢs
 
@@ -116,12 +171,12 @@ broadcast - Sᴇɴᴅ Mᴇssᴀɢᴇ Tᴏ Aʟʟ Usᴇʀs (Aᴅᴍɪɴ Oɴʟʏ)
 
 ## ❣️ Special Thanks 👍
 
-- Thanks To RknDeveloper For His Awesome [File-Rename-Bot](https://github.com/RknDeveloper/File-Rename-Bot.git)
+- Thanks To TEAM-PYRO-BOTZ For His Awesome [PYRO-RENAME-BOT](https://github.com/TEAM-PYRO-BOTZ/PYRO-RENAME-BOT.git)
 - Thanks To [RknDeveloper](https://github.com/RknDeveloper) who have edited and modified this repo as now it is. (It's me 😂)
+- Thanks To [NAm](https://t.me/xspes) the very newest repo modifier and fix issue 🤩(now the very me🤣)
 - Thanks To [JayMahakal](https://github.com/JayMahakal98) who have edited and modified this repo as now it is.
 - Thanks To Rkn Developer Teams ✅ (Edit & New Feature Added)
-- Special Repo Owner Thanks To [Digital Botz](https://github.com/DigitalBotz) 🥲
+- Special Repo Owner Thanks To Digital Botz 🥲
 
 ## Last Updated
-- `22-11-2025 12:15:30 AM`
-- 
+- `03-12-2025 09:28:30 PM`
