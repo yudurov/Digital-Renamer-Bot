@@ -52,12 +52,12 @@
  * Clone the Repo.
 
 ```
-git clone https://github.com/yuIlariy/Digital-Rename-Bot
+git clone https://github.com/yudurov/Digital-Renamer-Bot
 ```
  * Move to the Repo Folder in the VPS.
 
 ```
-cd Digital-Rename-Bot
+cd Digital-Renamer-Bot
 ```
  * Inside the cloned folder edit config.py and install the pip, by the following command.
 
