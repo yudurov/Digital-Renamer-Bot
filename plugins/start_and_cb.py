@@ -79,6 +79,13 @@ async def start(client, message):
             
     user = message.from_user
     await digital_botz.add_user(client, message) 
+
+    # 🧩 SEND STICKER FIRST
+    await message.reply_sticker(
+        "CAACAgUAAxkBAAEP_ulpPdACjdOAuTuAu-zy-9jHfNuJmgACkBAAAv6qCFfnv7MXxQ1_IjYE"
+    )
+
+    # 📝 THEN SEND START MESSAGE
     if Config.RKN_PIC:
         await message.reply_photo(Config.RKN_PIC, caption=rkn.START_TXT.format(user.mention), reply_markup=InlineKeyboardMarkup(start_button))    
     else:
