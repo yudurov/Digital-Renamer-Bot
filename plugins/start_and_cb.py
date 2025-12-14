@@ -64,32 +64,58 @@ upgrade_trial_button = InlineKeyboardMarkup([[
 
 
         
+import asyncio
+from pyrogram.enums import ChatAction
+
 @Client.on_message(filters.private & filters.command("start"))
 async def start(client, message):
-    start_button = [[        
+
+    start_button = [[
         InlineKeyboardButton('Uᴩᴅᴀ𝚃ᴇꜱ', url='https://t.me/OtherBs'),
         InlineKeyboardButton('Sᴜᴩᴩᴏʀ𝚃', url='https://t.me/DigitalBotz_Support')
-        ],[
+    ],[
         InlineKeyboardButton('Aʙᴏυᴛ', callback_data='about'),
-        InlineKeyboardButton('Hᴇʟᴩ', callback_data='help')       
-         ]]
-        
-    if client.premium:
-        start_button.append([InlineKeyboardButton('💸 ᴜᴘɢʀᴀᴅᴇ ᴛᴏ ᴘʀᴇᴍɪᴜᴍ 💸', callback_data='upgrade')])
-            
-    user = message.from_user
-    await digital_botz.add_user(client, message) 
+        InlineKeyboardButton('Hᴇʟᴩ', callback_data='help')
+    ]]
 
-    # 🧩 SEND STICKER FIRST
+    if client.premium:
+        start_button.append([
+            InlineKeyboardButton('💸 ᴜᴘɢʀᴀᴅᴇ ᴛᴏ ᴘʀᴇᴍɪᴜᴍ 💸', callback_data='upgrade')
+        ])
+
+    user = message.from_user
+    await digital_botz.add_user(client, message)
+
+    # 🧩 Send sticker
     await message.reply_sticker(
         "CAACAgUAAxkBAAEP_ulpPdACjdOAuTuAu-zy-9jHfNuJmgACkBAAAv6qCFfnv7MXxQ1_IjYE"
     )
 
-    # 📝 THEN SEND START MESSAGE
+    # ⏳ Wait 2 seconds
+    await asyncio.sleep(2)
+
+    # ⌨️ Typing animation
+    await client.send_chat_action(
+        chat_id=message.chat.id,
+        action=ChatAction.TYPING
+    )
+
+    # ⏳ Typing duration
+    await asyncio.sleep(3)
+
+    # 📝 Send start message
     if Config.RKN_PIC:
-        await message.reply_photo(Config.RKN_PIC, caption=rkn.START_TXT.format(user.mention), reply_markup=InlineKeyboardMarkup(start_button))    
+        await message.reply_photo(
+            Config.RKN_PIC,
+            caption=rkn.START_TXT.format(user.mention),
+            reply_markup=InlineKeyboardMarkup(start_button)
+        )
     else:
-        await message.reply_text(text=rkn.START_TXT.format(user.mention), reply_markup=InlineKeyboardMarkup(start_button), disable_web_page_preview=True)
+        await message.reply_text(
+            rkn.START_TXT.format(user.mention),
+            reply_markup=InlineKeyboardMarkup(start_button),
+            disable_web_page_preview=True
+        )
 
 
 @Client.on_message(filters.private & filters.command("myplan"))
