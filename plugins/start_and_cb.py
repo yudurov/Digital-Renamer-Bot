@@ -333,6 +333,9 @@ async def cb_handler(client, query: CallbackQuery):
             ]])
     )
 
+    elif data.startswith("upload"):
+        await upload_doc(client, query)
+
     elif data == "close":
         try:
             await query.message.delete()
