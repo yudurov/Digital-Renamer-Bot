@@ -424,45 +424,66 @@ async def _banned_users(_, m: Message):
      
 @Client.on_message(filters.command("broadcast") & filters.user(Config.ADMIN) & filters.reply)
 async def broadcast_handler(bot: Client, m: Message):
-    await bot.send_message(
-        Config.LOG_CHANNEL,
-        f"{m.from_user.mention} or {m.from_user.id} ʜᴀꜱ ꜱᴛᴀʀᴛᴇᴅ ᴀ Bʀᴏᴀᴅᴄᴀꜱᴛ......🌋"
-    )
-    all_users = await digital_botz.get_all_users()
-    broadcast_msg = m.reply_to_message
-    sts_msg = await m.reply_text("Bʀᴏᴀᴅᴄᴀꜱᴛ Sᴛᴀʀᴛᴇᴅ..!") 
-    done = 0
-    failed = 0
-    success = 0
-    start_time = time.time()
-    total_users = await digital_botz.total_users_count()
-    async for user in all_users:
-        sts = await send_msg(user['_id'], broadcast_msg)
-        if sts == 200:
-            success += 1
-        else:
-            failed += 1
-        if sts == 400:
-            await digital_botz.delete_user(user['_id'])
-        done += 1
-        if not done % 20:
-            await sts_msg.edit(
-                f"Bʀᴏᴀᴅᴄᴀꜱᴛ Iɴ Pʀᴏɢʀᴇꜱꜱ: \n"
-                f"Tᴏᴛᴀʟ Uꜱᴇʀꜱ {total_users} \n"
-                f"Cᴏᴍᴩʟᴇᴛᴇᴅ: {done} / {total_users}\n"
-                f"Sᴜᴄᴄᴇꜱꜱ: {success}\n"
-                f"Fᴀɪʟᴇᴅ: {failed}"
-            )
-    completed_in = datetime.timedelta(seconds=int(time.time() - start_time))
-    await sts_msg.edit(
-        f"Bʀᴏᴀᴅᴄᴀꜱᴛ Cᴏᴍᴩʟᴇᴛᴇᴅ: \n"
-        f"Cᴏᴍᴩʟᴇᴛᴇᴅ Iɴ `{completed_in}`.\n\n"
-        f"Tᴏᴛᴀʟ Uꜱᴇʀꜱ {total_users}\n"
-        f"Cᴏᴍᴩʟᴇᴛᴇᴅ: {done} / {total_users}\n"
-        f"Sᴜᴄᴄᴇꜱꜱ: {success}\n"
-        f"Fᴀɪʟᴇᴅ: {failed}"
-    )
-           
+
+    # 1️⃣ Immediate feedback (VERY important)
+    sts_msg = await m.reply_text("🔄 Initializing broadcast...")
+
+    try:
+        await bot.send_message(
+            Config.LOG_CHANNEL,
+            f"{m.from_user.mention} ({m.from_user.id}) started a broadcast"
+        )
+
+        broadcast_msg = m.reply_to_message
+
+        # 2️⃣ Force DB cursor → list (prevents hanging)
+        users = [user async for user in digital_botz.get_all_users()]
+
+        total_users = len(users)
+        if total_users == 0:
+            return await sts_msg.edit("❌ No users found in database.")
+
+        done = failed = success = 0
+        start_time = time.time()
+
+        await sts_msg.edit(f"📢 Broadcast started to {total_users} users")
+
+        for user in users:
+            sts = await send_msg(user["_id"], broadcast_msg)
+
+            if sts == 200:
+                success += 1
+            else:
+                failed += 1
+
+            if sts == 400:
+                await digital_botz.delete_user(user["_id"])
+
+            done += 1
+
+            if done % 20 == 0:
+                await sts_msg.edit(
+                    f"📊 Broadcast Progress\n\n"
+                    f"Total: {total_users}\n"
+                    f"Done: {done}\n"
+                    f"Success: {success}\n"
+                    f"Failed: {failed}"
+                )
+
+        completed_in = datetime.timedelta(seconds=int(time.time() - start_time))
+        await sts_msg.edit(
+            f"✅ Broadcast Completed\n\n"
+            f"Time: `{completed_in}`\n"
+            f"Total: {total_users}\n"
+            f"Success: {success}\n"
+            f"Failed: {failed}"
+        )
+
+    except Exception as e:
+        logger.exception("Broadcast failed")
+        await sts_msg.edit(f"❌ Broadcast error:\n`{e}`")
+
+
 async def send_msg(user_id, message):
     try:
         await message.copy(chat_id=int(user_id))
