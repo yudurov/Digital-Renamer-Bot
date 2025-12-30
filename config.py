@@ -70,19 +70,17 @@ class Config(object):
 
 class rkn(object):
     # part of text configuration
-    START_TXT = """✨ <b>Greetings, {}! 🧙‍♂️</b>
+    START_TXT = """👋 <b>Hello, {}!</b>
 
-🔮 <b>Welcome to the Ultimate File Renaming Bot!</b>
+Welcome to Fast and simple file renaming Bot.  
+Send a file to get started.
 
-🎩 <i>Where files undergo magical metamorphosis!</i>
-
-⚡ <b>FEATURES:</b>
-├ ✅ Effortless File Renaming  
-├ ✅ Add Your Own Custom Captions  
-├ ✅ Video ↔️ Document convertion  
-├ ✅ Personalize Thumbnails  
-├ ✅ Edit File Metadata  
-└ ✅ Smart AI Enhancements  
+🛠 <b>Key features:</b>
+• Quick Rename files  
+• Custom captions  
+• Convert videos & documents  
+• Customize thumbnails  
+• Modify metadata  
 
 🌟 <i>Lightning-fast with premium enchantments!</i>
 
