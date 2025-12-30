@@ -72,7 +72,8 @@ class rkn(object):
     # part of text configuration
     START_TXT = """👋 <b>Hello, {}!</b>
 
-Welcome to Fast and simple file renaming Bot.  
+<b>Welcome to the Fast and simple file renaming Bot.</b>
+
 Send a file to get started.
 
 🛠 <b>Key features:</b>
