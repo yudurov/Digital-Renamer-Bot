@@ -92,7 +92,7 @@ async def start(client, message):
     )
 
     # ⏳ Wait 2 seconds
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
 
     # ⌨️ Typing animation
     await client.send_chat_action(
@@ -101,7 +101,7 @@ async def start(client, message):
     )
 
     # ⏳ Typing duration
-    await asyncio.sleep(3)
+    await asyncio.sleep(2)
 
     # 📝 Send start message
     if Config.RKN_PIC:
