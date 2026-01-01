@@ -88,7 +88,7 @@ async def start(client, message):
 
     # 🧩 Send sticker
     await message.reply_sticker(
-        "CAACAgUAAxkBAAEP_ulpPdACjdOAuTuAu-zy-9jHfNuJmgACkBAAAv6qCFfnv7MXxQ1_IjYE"
+        "CAACAgIAAxkBAAEQJ1RpVuOr8Dzfe28mqSolhzj9vasfZQACBkQAAqFdIUtllqU9n6Fs6TgE"
     )
 
     # ⏳ Wait 2 seconds
@@ -101,7 +101,7 @@ async def start(client, message):
     )
 
     # ⏳ Typing duration
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
 
     # 📝 Send start message
     if Config.RKN_PIC:
