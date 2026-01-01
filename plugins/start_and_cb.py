@@ -88,7 +88,7 @@ async def start(client, message):
 
     # 🧩 Send sticker
     await message.reply_sticker(
-        "CAACAgIAAxkBAAEQJ1RpVuOr8Dzfe28mqSolhzj9vasfZQACBkQAAqFdIUtllqU9n6Fs6TgE"
+        "CAACAgUAAxkBAAEQJ15pVubfZNW80g15c-mM6fIEgbpjxQAC1R0AAtXtGFbcXYRFuth_4DgE"
     )
 
     # ⏳ Wait 2 seconds
