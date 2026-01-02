@@ -9,25 +9,6 @@
 """
 Apache License 2.0
 Copyright (c) 2022 @Digital_Botz
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Telegram Link : https://t.me/Digital_Botz 
-Repo Link : https://github.com/DigitalBotz/Digital-Rename-Bot
-License Link : https://github.com/DigitalBotz/Digital-Rename-Bot/blob/main/LICENSE
 """
 
 # database imports
@@ -43,6 +24,7 @@ class Database:
         self.db = self._client[database_name]
         self.col = self.db.user
         self.premium = self.db.premium
+        self.stats = self.db.stats  # <--- New Collection for Stats
 
     def new_user(self, id):
         return dict(
@@ -207,7 +189,7 @@ class Database:
             await self.col.update_one(
                 {'_id': user_id}, 
                 {'$set': {
-                    'usertype': user_type,
+                    'usertype': type,
                     'uploadlimit': limit
                 }}
             )
@@ -290,7 +272,24 @@ class Database:
     async def get_all_banned_users(self):
         banned_users = self.col.find({'ban_status.is_banned': True})
         return banned_users
-        
+
+    # --- NEW FUNCTIONS FOR NETWORK STATS ---
+
+    async def update_network_stats(self, sent_delta, recv_delta):
+        """Adds delta (difference) to the total stats in DB"""
+        await self.stats.update_one(
+            {"_id": "network_stats"},
+            {"$inc": {"sent": sent_delta, "recv": recv_delta}},
+            upsert=True
+        )
+
+    async def get_network_stats(self):
+        """Fetches total aggregated stats from DB"""
+        data = await self.stats.find_one({"_id": "network_stats"})
+        if not data:
+            return {"sent": 0, "recv": 0}
+        return data
+
 digital_botz = Database(Config.DB_URL, Config.DB_NAME)
 
 # Rkn Developer 
