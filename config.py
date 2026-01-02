@@ -173,7 +173,7 @@ Exᴀᴍᴩʟᴇ:- `/set_caption 📕 Fɪʟᴇ Nᴀᴍᴇ: {filename}
 📁 ғʀᴇᴇ sᴘᴀᴄᴇ: `{}`
 📤 ᴜᴘʟᴏᴀᴅ: `{}`
 📥 ᴅᴏᴡɴʟᴏᴀᴅ: `{}`
-🧩 V𝟹.𝟶.1 [STABLE]
+🧩 V𝟹.𝟶.𝟷 [STABLE]
 """
     DIGITAL_METADATA = """
 ❪ SET CUSTOM METADATA ❫
