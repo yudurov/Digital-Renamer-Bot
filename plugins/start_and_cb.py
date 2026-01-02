@@ -8,25 +8,6 @@
 """
 Apache License 2.0
 Copyright (c) 2022 @Digital_Botz
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Telegram Link : https://t.me/Digital_Botz 
-Repo Link : https://github.com/DigitalBotz/Digital-Rename-Bot
-License Link : https://github.com/DigitalBotz/Digital-Rename-Bot/blob/main/LICENSE
 """
 
 # extra imports
@@ -35,12 +16,56 @@ import random, asyncio, datetime, pytz, time, psutil, shutil
 # pyrogram imports
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ForceReply, CallbackQuery
+from pyrogram.enums import ChatAction
 
 # bots imports
 from helper.database import digital_botz
 from config import Config, rkn
 from helper.utils import humanbytes
 from plugins import __version__ as _bot_version_, __developer__, __database__, __library__, __language__, __programer__
+
+# --- GLOBAL VARIABLES FOR NETWORK STATS ---
+STATS_STARTED = False
+LAST_SENT = 0
+LAST_RECV = 0
+
+async def stats_loop():
+    """Background task to accumulate network usage to DB"""
+    global LAST_SENT, LAST_RECV
+    # Initialize with current values
+    LAST_SENT = psutil.net_io_counters().bytes_sent
+    LAST_RECV = psutil.net_io_counters().bytes_recv
+    
+    while True:
+        try:
+            await asyncio.sleep(60) # Update every 1 minute
+            
+            curr_sent = psutil.net_io_counters().bytes_sent
+            curr_recv = psutil.net_io_counters().bytes_recv
+            
+            # Calculate delta (difference since last check)
+            # If current < last, it means VPS restarted and counters reset
+            if curr_sent < LAST_SENT:
+                sent_delta = curr_sent
+            else:
+                sent_delta = curr_sent - LAST_SENT
+                
+            if curr_recv < LAST_RECV:
+                recv_delta = curr_recv
+            else:
+                recv_delta = curr_recv - LAST_RECV
+            
+            # Update global counters
+            LAST_SENT = curr_sent
+            LAST_RECV = curr_recv
+            
+            # Send delta to database to add to total
+            if sent_delta > 0 or recv_delta > 0:
+                await digital_botz.update_network_stats(sent_delta, recv_delta)
+                
+        except Exception as e:
+            print(f"Error in stats_loop: {e}")
+            await asyncio.sleep(60)
 
 def format_uptime(seconds: int) -> str:
     days, remainder = divmod(seconds, 86400)
@@ -63,12 +88,14 @@ upgrade_trial_button = InlineKeyboardMarkup([[
 ]])
 
 
-        
-import asyncio
-from pyrogram.enums import ChatAction
-
 @Client.on_message(filters.private & filters.command("start"))
 async def start(client, message):
+    # --- START NETWORK STATS COLLECTOR ---
+    global STATS_STARTED
+    if not STATS_STARTED:
+        asyncio.create_task(stats_loop())
+        STATS_STARTED = True
+    # -------------------------------------
 
     start_button = [[
         InlineKeyboardButton('Uᴩᴅᴀ𝚃ᴇꜱ', url='https://t.me/OtherBs'),
@@ -187,6 +214,13 @@ async def plans(client, message):
   
 @Client.on_callback_query()
 async def cb_handler(client, query: CallbackQuery):
+    # --- ENSURE STATS ARE RUNNING ---
+    global STATS_STARTED
+    if not STATS_STARTED:
+        asyncio.create_task(stats_loop())
+        STATS_STARTED = True
+    # --------------------------------
+
     data = query.data 
     if data == "start":
         start_button = [[        
@@ -287,8 +321,13 @@ async def cb_handler(client, query: CallbackQuery):
         total_premium_users = real_total_premium_users + 50 if client.premium else "Disabled ✅"
         
         uptime = format_uptime(int(time.time() - client.uptime))
-        sent = humanbytes(psutil.net_io_counters().bytes_sent)
-        recv = humanbytes(psutil.net_io_counters().bytes_recv)
+        
+        # --- FETCH NETWORK FROM DB ---
+        stats = await digital_botz.get_network_stats()
+        sent = humanbytes(stats['sent'])
+        recv = humanbytes(stats['recv'])
+        # -----------------------------
+        
         await query.message.edit_text(
             text=rkn.BOT_STATUS.format(uptime, total_users, total_premium_users, sent, recv),
             disable_web_page_preview=True,
@@ -300,8 +339,13 @@ async def cb_handler(client, query: CallbackQuery):
         total = humanbytes(total)
         used = humanbytes(used)
         free = humanbytes(free)
-        sent = humanbytes(psutil.net_io_counters().bytes_sent)
-        recv = humanbytes(psutil.net_io_counters().bytes_recv)
+        
+        # --- FETCH NETWORK FROM DB ---
+        stats = await digital_botz.get_network_stats()
+        sent = humanbytes(stats['sent'])
+        recv = humanbytes(stats['recv'])
+        # -----------------------------
+        
         cpu_usage = psutil.cpu_percent()
         ram_usage = psutil.virtual_memory().percent
         disk_usage = psutil.disk_usage('/').percent
@@ -344,10 +388,3 @@ async def cb_handler(client, query: CallbackQuery):
         except:
             await query.message.delete()
             await query.message.continue_propagation()
-
-# (c) @RknDeveloperr
-# Rkn Developer 
-# Don't Remove Credit 😔
-# Telegram Channel @RknDeveloper & @Rkn_Botz
-# Developer @RknDeveloperr
-# Update Channel @Digital_Botz & @DigitalBotz_Support
