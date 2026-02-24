@@ -176,6 +176,9 @@ class Database:
                 }}
             )
     
+    # ALIAS ADDED HERE
+    addpremium = add_premium
+    
     async def remove_premium(self, user_id, limit=Config.FREE_UPLOAD_LIMIT, type="Free"):
         await self.premium.update_one(
             {"id": user_id}, 
