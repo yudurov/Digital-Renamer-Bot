@@ -61,14 +61,3 @@ __maindeveloper__ = "<a href=https://t.me/RknDeveloper>RknDeveloper</a>"
 # - Dockerfile
 # - requirements.txt
 # - runtime.txt
-
-from plugins.force_sub import not_subscribed, forces_sub, handle_banned_user_status
-from pyrogram import Client, filters
-
-@Client.on_message(filters.private)
-async def _(bot, message):
-    await handle_banned_user_status(bot, message)
-    
-@Client.on_message(filters.private & filters.create(not_subscribed))
-async def forces_sub_handler(bot, message):
-    await forces_sub(bot, message)
