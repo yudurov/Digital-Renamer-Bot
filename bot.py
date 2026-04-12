@@ -45,7 +45,8 @@ from pyrogram import idle
 # bots imports
 from config import Config
 from plugins.web_support import web_server
-from plugins.file_rename import app
+from plugins.file_rename import app, resume_all_tasks
+from helper.database import digital_botz
 
 # Get logging configurations
 logging.basicConfig(
@@ -132,15 +133,17 @@ digital_instance = DigitalRenameBot()
 
 def main():
     async def start_services():
+        await digital_botz.init_db()
+
         if Config.STRING_SESSION:
             await asyncio.gather(app.start(), digital_instance.start())
         else:
             await asyncio.gather(digital_instance.start())
+            
+        await resume_all_tasks(digital_instance)
         
-        # Idle mode start karo
         await idle()
         
-        # Bot stop karo
         if Config.STRING_SESSION:
             await asyncio.gather(app.stop(), digital_instance.stop())
         else:
@@ -163,10 +166,3 @@ if __name__ == "__main__":
         asyncio.run(asyncio.sleep(ft.value))
         print("Now Ready For Deploying!")
         main()
-        
-
-# Rkn Developer 
-# Don't Remove Credit 😔
-# Telegram Channel @RknDeveloper & @Rkn_Botz
-# Developer @RknDeveloperr
-# Update Channel @Digital_Botz & @DigitalBotz_Support
