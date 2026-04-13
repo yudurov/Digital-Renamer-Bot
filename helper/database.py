@@ -102,9 +102,19 @@ class Database:
     async def total_users_count(self):
         return await User.count()
 
+    # --- 🛡️ BULLETPROOF QUERIES (Bypassing Pydantic for large lists) ---
     async def get_all_users(self):
-        users = await User.find_all().to_list()
-        return [user.model_dump(by_alias=True) for user in users]
+        """Uses raw PyMongo to bypass strict Pydantic validation on messy legacy data"""
+        return await self.db["user"].find({}).to_list(length=None)
+        
+    async def get_all_banned_users(self):
+        """Uses raw PyMongo to fetch banned users safely"""
+        return await self.db["user"].find({"ban_status.is_banned": True}).to_list(length=None)
+
+    async def get_all_premium_users(self):
+        """Uses raw PyMongo to fetch premium users safely"""
+        return await self.db["premium"].find({"expiry_time": {"$gt": datetime.datetime.now()}}).to_list(length=None)
+    # -------------------------------------------------------------------
 
     async def delete_user(self, user_id: int):
         user = await User.get(user_id)
@@ -276,10 +286,6 @@ class Database:
     async def total_premium_users_count(self):
         return await PremiumUser.find(PremiumUser.expiry_time > datetime.datetime.now()).count()
 
-    async def get_all_premium_users(self):
-        users = await PremiumUser.find(PremiumUser.expiry_time > datetime.datetime.now()).to_list()
-        return [u.model_dump(by_alias=True) for u in users]
-
     async def get_free_trial_status(self, user_id: int):
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         return prem.has_free_trial if prem else False
@@ -320,10 +326,6 @@ class Database:
     async def get_ban_status(self, id: int):
         user = await User.get(id)
         return user.ban_status.model_dump() if user else BanStatus().model_dump()
-
-    async def get_all_banned_users(self):
-        users = await User.find(User.ban_status.is_banned == True).to_list()
-        return [u.model_dump(by_alias=True) for u in users]
 
     # --- NETWORK STATS ---
     async def update_network_stats(self, sent_delta: int, recv_delta: int):
