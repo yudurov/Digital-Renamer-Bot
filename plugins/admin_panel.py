@@ -279,7 +279,7 @@ async def restart_bot(b, m):
     start_time = time.time()
     total_users = await digital_botz.total_users_count()
     all_users = await digital_botz.get_all_users() # Now a List
-    for user in all_users: # Changed from async for
+    for user in all_users: 
         try:
             restart_msg = (
                 f"ʜᴇʏ, {(await b.get_users(user['_id'])).mention}\n\n"
@@ -297,7 +297,6 @@ async def restart_bot(b, m):
         except Exception as e:
             failed += 1
             await digital_botz.delete_user(user['_id'])
-            print(e)
             pass
         try:
             await rkn.edit(
@@ -400,8 +399,8 @@ async def _banned_users(_, m: Message):
     all_banned_users = await digital_botz.get_all_banned_users()
     banned_usr_count = 0
     text = ''
-    for banned_user in all_banned_users: # Changed from async for
-        user_id = banned_user['_id'] # Fixed KeyError: 'id' -> '_id'
+    for banned_user in all_banned_users: 
+        user_id = banned_user['_id'] 
         ban_duration = banned_user['ban_status']['ban_duration']
         banned_on = banned_user['ban_status']['banned_on']
         ban_reason = banned_user['ban_status']['ban_reason']
@@ -422,13 +421,17 @@ async def _banned_users(_, m: Message):
     await m.reply_text(reply_text, True)
 
      
-@Client.on_message(filters.command("broadcast") & filters.user(Config.ADMIN) & filters.reply)
+# REMOVED filters.reply FROM THIS LINE
+@Client.on_message(filters.command("broadcast") & filters.user(Config.ADMIN))
 async def broadcast_handler(bot: Client, m: Message):
+    if not m.reply_to_message:
+        return await m.reply_text("⚠️ **Please reply to a message (text, photo, or file) with `/broadcast` to send it to all users.**")
+
     await bot.send_message(
         Config.LOG_CHANNEL,
         f"{m.from_user.mention} or {m.from_user.id} ʜᴀꜱ ꜱᴛᴀʀᴛᴇᴅ ᴀ Bʀᴏᴀᴅᴄᴀꜱᴛ......🌋"
     )
-    all_users = await digital_botz.get_all_users() # Now a List
+    all_users = await digital_botz.get_all_users() 
     broadcast_msg = m.reply_to_message
     sts_msg = await m.reply_text("Bʀᴏᴀᴅᴄᴀꜱᴛ Sᴛᴀʀᴛᴇᴅ..!") 
     done = 0
@@ -436,7 +439,7 @@ async def broadcast_handler(bot: Client, m: Message):
     success = 0
     start_time = time.time()
     total_users = await digital_botz.total_users_count()
-    for user in all_users: # Changed from async for
+    for user in all_users: 
         sts = await send_msg(user['_id'], broadcast_msg)
         if sts == 200:
             success += 1
