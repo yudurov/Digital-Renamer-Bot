@@ -15,16 +15,6 @@ copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Telegram Link : https://t.me/Digital_Botz 
-Repo Link : https://github.com/DigitalBotz/Digital-Rename-Bot
-License Link : https://github.com/DigitalBotz/Digital-Rename-Bot/blob/main/LICENSE
 """
 
 # extra imports
@@ -50,7 +40,6 @@ async def get_stats(bot, message):
     else:
         total_premium_users = "Disabled ✅"
 
-    # Detailed uptime: days, hours, minutes, seconds
     uptime_seconds = int(time.time() - bot.uptime)
     days, remainder = divmod(uptime_seconds, 86400)
     hours, remainder = divmod(remainder, 3600)
@@ -71,7 +60,6 @@ async def get_stats(bot, message):
     ))
 
 
-# bot logs process 
 @Client.on_message(filters.command('logs') & filters.user(Config.ADMIN))
 async def log_file(b, m):
     try:
@@ -228,7 +216,7 @@ async def add_premium(client, message):
             expiry_str_in_ist = str(expiry)
 
         await message.reply_text(
-            f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ✅\n\n"
+            f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜꜱꜱᴇꜱꜰᴜʟʟʏ ✅\n\n"
             f"👤 ᴜꜱᴇʀ : {user_mention}\n"
             f"⚡ ᴜꜱᴇʀ ɪᴅ : <code>{user_id}</code>\n"
             f"⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{time_string}</code>\n\n"
@@ -290,75 +278,73 @@ async def remove_premium(bot, message):
                 quote=True
             )
     else:
-        await message.reply_text(
-            "📜 ᴜꜱᴀɢᴇ : `/remove_premium ᴜꜱᴇʀ ɪᴅ`",
-            quote=True
-        )
+        await message.reply_text("📜 ᴜꜱᴀɢᴇ : `/remove_premium ᴜꜱᴇʀ ɪᴅ`", quote=True)
 
 
-# Restart to cancel all processes 
 @Client.on_message(filters.private & filters.command("restart") & filters.user(Config.ADMIN))
 async def restart_bot(b, m):
     rkn = await b.send_message(
         text="**🔄 ᴘʀᴏᴄᴇssᴇs sᴛᴏᴘᴘᴇᴅ. ʙᴏᴛ ɪs ʀᴇsᴛᴀʀᴛɪɴɢ.....**",
         chat_id=m.chat.id
     )
-    failed = 0
-    success = 0
-    deactivated = 0
-    blocked = 0
-    start_time = time.time()
-    total_users = await digital_botz.total_users_count()
     
-    # Safely get all users as a list
-    all_users = await digital_botz.get_all_users()
-    
-    for user in all_users: 
-        # Bulletproof ID extraction
-        user_id = user.get('_id', user.get('id'))
-        if not user_id:
-            continue
-            
-        try:
-            restart_msg = (
-                f"**🔄 ᴘʀᴏᴄᴇssᴇs sᴛᴏᴘᴘᴇᴅ. ʙᴏᴛ ɪs ʀᴇsᴛᴀʀᴛɪɴɢ.....\n\n"
-                f"✅️ ʙᴏᴛ ɪs ʀᴇsᴛᴀʀᴛᴇᴅ. ɴᴏᴡ ʏᴏᴜ ᴄᴀɴ ᴜsᴇ ᴍᴇ.**"
-            )
-            await b.send_message(user_id, restart_msg)
-            success += 1
-        except InputUserDeactivated:
-            deactivated += 1
-            await digital_botz.delete_user(user_id)
-        except UserIsBlocked:
-            blocked += 1
-            await digital_botz.delete_user(user_id)
-        except Exception as e:
-            failed += 1
-            pass
-            
-        try:
-            # Update admin periodically, not every single user
-            if (success + failed + deactivated + blocked) % 50 == 0:
-                await rkn.edit(
-                    f"<u>ʀᴇsᴛᴀʀᴛ ɪɴ ᴩʀᴏɢʀᴇꜱꜱ:</u>\n\n"
-                    f"• ᴛᴏᴛᴀʟ ᴜsᴇʀs: {total_users}\n"
-                    f"• sᴜᴄᴄᴇssғᴜʟ: {success}\n"
-                    f"• ʙʟᴏᴄᴋᴇᴅ ᴜsᴇʀs: {blocked}\n"
-                    f"• ᴅᴇʟᴇᴛᴇᴅ ᴀᴄᴄᴏᴜɴᴛs: {deactivated}\n"
-                    f"• ᴜɴsᴜᴄᴄᴇssғᴜʟ: {failed}"
+    try:
+        failed = 0
+        success = 0
+        deactivated = 0
+        blocked = 0
+        start_time = time.time()
+        total_users = await digital_botz.total_users_count()
+        all_users = await digital_botz.get_all_users()
+        
+        for user in all_users: 
+            user_id = user.get('_id', user.get('id'))
+            if not user_id:
+                continue
+                
+            try:
+                restart_msg = (
+                    f"**🔄 ᴘʀᴏᴄᴇssᴇs sᴛᴏᴘᴘᴇᴅ. ʙᴏᴛ ɪs ʀᴇsᴛᴀʀᴛɪɴɢ.....\n\n"
+                    f"✅️ ʙᴏᴛ ɪs ʀᴇsᴛᴀʀᴛᴇᴅ. ɴᴏᴡ ʏᴏᴜ ᴄᴀɴ ᴜsᴇ ᴍᴇ.**"
                 )
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
+                await b.send_message(user_id, restart_msg)
+                success += 1
+            except InputUserDeactivated:
+                deactivated += 1
+                await digital_botz.delete_user(user_id)
+            except UserIsBlocked:
+                blocked += 1
+                await digital_botz.delete_user(user_id)
+            except Exception as e:
+                failed += 1
+                pass
+                
+            try:
+                if (success + failed + deactivated + blocked) % 50 == 0:
+                    await rkn.edit(
+                        f"<u>ʀᴇsᴛᴀʀᴛ ɪɴ ᴩʀᴏɢʀᴇꜱꜱ:</u>\n\n"
+                        f"• ᴛᴏᴛᴀʟ ᴜsᴇʀs: {total_users}\n"
+                        f"• sᴜᴄᴄᴇssғᴜʟ: {success}\n"
+                        f"• ʙʟᴏᴄᴋᴇᴅ ᴜsᴇʀs: {blocked}\n"
+                        f"• ᴅᴇʟᴇᴛᴇᴅ ᴀᴄᴄᴏᴜɴᴛs: {deactivated}\n"
+                        f"• ᴜɴsᴜᴄᴄᴇssғᴜʟ: {failed}"
+                    )
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
 
-    completed_restart = datetime.timedelta(seconds=int(time.time() - start_time))
-    await rkn.edit(
-        f"ᴄᴏᴍᴘʟᴇᴛᴇᴅ ʀᴇsᴛᴀʀᴛ: {completed_restart}\n\n"
-        f"• ᴛᴏᴛᴀʟ ᴜsᴇʀs: {total_users}\n"
-        f"• sᴜᴄᴄᴇssғᴜʟ: {success}\n"
-        f"• ʙʟᴏᴄᴋᴇᴅ ᴜsᴇʀs: {blocked}\n"
-        f"• ᴅᴇʟᴇᴛᴇᴅ ᴀᴄᴄᴏᴜɴᴛs: {deactivated}\n"
-        f"• ᴜɴsᴜᴄᴄᴇssғᴜʟ: {failed}"
-    )
+        completed_restart = datetime.timedelta(seconds=int(time.time() - start_time))
+        await rkn.edit(
+            f"ᴄᴏᴍᴘʟᴇᴛᴇᴅ ʀᴇsᴛᴀʀᴛ: {completed_restart}\n\n"
+            f"• ᴛᴏᴛᴀʟ ᴜsᴇʀs: {total_users}\n"
+            f"• sᴜᴄᴄᴇssғᴜʟ: {success}\n"
+            f"• ʙʟᴏᴄᴋᴇᴅ ᴜsᴇʀs: {blocked}\n"
+            f"• ᴅᴇʟᴇᴛᴇᴅ ᴀᴄᴄᴏᴜɴᴛs: {deactivated}\n"
+            f"• ᴜɴsᴜᴄᴄᴇssғᴜʟ: {failed}"
+        )
+    except Exception as e:
+        traceback_str = traceback.format_exc()
+        await rkn.edit(f"⚠️ **Critical Error during Restart:**\n\n`{e}`\n\n`{traceback_str[-800:]}`")
+        
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 
@@ -394,10 +380,7 @@ async def ban(c: Client, m: Message):
         await digital_botz.ban_user(user_id, ban_duration, ban_reason)
         await m.reply_text(ban_log_text, quote=True)
     except Exception as e:
-        await m.reply_text(
-            f"🧪 Error occurred!\n\n`{e}`",
-            quote=True
-        )
+        await m.reply_text(f"🧪 Error occurred!\n\n`{e}`", quote=True)
 
 
 @Client.on_message(filters.private & filters.command("unban") & filters.user(Config.ADMIN))
@@ -457,67 +440,74 @@ async def _banned_users(_, m: Message):
     await m.reply_text(reply_text, True)
 
      
-# REMOVED filters.reply FROM THIS LINE
 @Client.on_message(filters.command("broadcast") & filters.user(Config.ADMIN))
 async def broadcast_handler(bot: Client, m: Message):
     # Enforce replying to a message
     if not m.reply_to_message:
         return await m.reply_text("⚠️ **Please reply to a message (text, photo, or file) with `/broadcast` to send it to all users.**")
 
-    # Wrap log channel message in try/except so it doesn't crash the script if log channel is misconfigured
-    try:
-        if Config.LOG_CHANNEL:
-            await bot.send_message(
-                Config.LOG_CHANNEL,
-                f"{m.from_user.mention} or {m.from_user.id} ʜᴀꜱ ꜱᴛᴀʀᴛᴇᴅ ᴀ Bʀᴏᴀᴅᴄᴀꜱᴛ......🌋"
-            )
-    except Exception as e:
-        logger.error(f"Log channel error during broadcast: {e}")
-        pass # Continue broadcasting even if logging fails
+    # WE MOVED THIS UP: So you instantly get a reply, even if it crashes a millisecond later!
+    sts_msg = await m.reply_text("🚀 **Bʀᴏᴀᴅᴄᴀꜱᴛ Sᴛᴀʀᴛᴇᴅ..! Fetching users...**") 
 
-    all_users = await digital_botz.get_all_users() 
-    broadcast_msg = m.reply_to_message
-    sts_msg = await m.reply_text("🚀 Bʀᴏᴀᴅᴄᴀꜱᴛ Sᴛᴀʀᴛᴇᴅ..!") 
-    
-    done = 0
-    failed = 0
-    success = 0
-    start_time = time.time()
-    total_users = await digital_botz.total_users_count()
-    
-    for user in all_users: 
-        # Safely extract user ID from the database dictionary
-        user_id = user.get('_id', user.get('id'))
-        if not user_id:
-            continue
-            
-        sts = await send_msg(user_id, broadcast_msg)
-        if sts == 200:
-            success += 1
-        else:
-            failed += 1
-        if sts == 400:
-            await digital_botz.delete_user(user_id)
-            
-        done += 1
-        if not done % 20:
-            await sts_msg.edit(
-                f"Bʀᴏᴀᴅᴄᴀꜱᴛ Iɴ Pʀᴏɢʀᴇꜱꜱ: \n"
-                f"Tᴏᴛᴀʟ Uꜱᴇʀꜱ: {total_users} \n"
-                f"Cᴏᴍᴩʟᴇᴛᴇᴅ: {done} / {total_users}\n"
-                f"Sᴜᴄᴄᴇꜱꜱ: {success}\n"
-                f"Fᴀɪʟᴇᴅ: {failed}"
-            )
-            
-    completed_in = datetime.timedelta(seconds=int(time.time() - start_time))
-    await sts_msg.edit(
-        f"✅ Bʀᴏᴀᴅᴄᴀꜱᴛ Cᴏᴍᴩʟᴇᴛᴇᴅ: \n"
-        f"Cᴏᴍᴩʟᴇᴛᴇᴅ Iɴ `{completed_in}`.\n\n"
-        f"Tᴏᴛᴀʟ Uꜱᴇʀꜱ: {total_users}\n"
-        f"Cᴏᴍᴩʟᴇᴛᴇᴅ: {done} / {total_users}\n"
-        f"Sᴜᴄᴄᴇꜱꜱ: {success}\n"
-        f"Fᴀɪʟᴇᴅ: {failed}"
-    )
+    try:
+        # Wrap log channel message in try/except so it doesn't crash the script if log channel is misconfigured
+        try:
+            if Config.LOG_CHANNEL:
+                await bot.send_message(
+                    Config.LOG_CHANNEL,
+                    f"{m.from_user.mention} or {m.from_user.id} ʜᴀꜱ ꜱᴛᴀʀᴛᴇᴅ ᴀ Bʀᴏᴀᴅᴄᴀꜱᴛ......🌋"
+                )
+        except Exception as e:
+            logger.error(f"Log channel error during broadcast: {e}")
+            pass
+
+        all_users = await digital_botz.get_all_users() 
+        broadcast_msg = m.reply_to_message
+        
+        done = 0
+        failed = 0
+        success = 0
+        start_time = time.time()
+        total_users = await digital_botz.total_users_count()
+        
+        for user in all_users: 
+            user_id = user.get('_id', user.get('id'))
+            if not user_id:
+                continue
+                
+            sts = await send_msg(user_id, broadcast_msg)
+            if sts == 200:
+                success += 1
+            else:
+                failed += 1
+            if sts == 400:
+                await digital_botz.delete_user(user_id)
+                
+            done += 1
+            if not done % 20:
+                await sts_msg.edit(
+                    f"Bʀᴏᴀᴅᴄᴀꜱᴛ Iɴ Pʀᴏɢʀᴇꜱꜱ: \n"
+                    f"Tᴏᴛᴀʟ Uꜱᴇʀꜱ: {total_users} \n"
+                    f"Cᴏᴍᴩʟᴇᴛᴇᴅ: {done} / {total_users}\n"
+                    f"Sᴜᴄᴄᴇꜱꜱ: {success}\n"
+                    f"Fᴀɪʟᴇᴅ: {failed}"
+                )
+                
+        completed_in = datetime.timedelta(seconds=int(time.time() - start_time))
+        await sts_msg.edit(
+            f"✅ Bʀᴏᴀᴅᴄᴀꜱᴛ Cᴏᴍᴩʟᴇᴛᴇᴅ: \n"
+            f"Cᴏᴍᴩʟᴇᴛᴇᴅ Iɴ `{completed_in}`.\n\n"
+            f"Tᴏᴛᴀʟ Uꜱᴇʀꜱ: {total_users}\n"
+            f"Cᴏᴍᴩʟᴇᴛᴇᴅ: {done} / {total_users}\n"
+            f"Sᴜᴄᴄᴇꜱꜱ: {success}\n"
+            f"Fᴀɪʟᴇᴅ: {failed}"
+        )
+
+    except Exception as e:
+        # IF IT CRASHES, IT WILL PRINT THE ERROR DIRECTLY TO TELEGRAM!
+        traceback_str = traceback.format_exc()
+        await sts_msg.edit(f"⚠️ **Critical Error during Broadcast:**\n\n`{e}`\n\n`{traceback_str[-800:]}`")
+
            
 async def send_msg(user_id, message):
     try:
@@ -535,7 +525,6 @@ async def send_msg(user_id, message):
     except Exception as e:
         logger.error(f"{user_id} : {e}")
         return 500
- 
 
 # Rkn Developer 
 # Don't Remove Credit 😔
