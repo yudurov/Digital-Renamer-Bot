@@ -278,8 +278,8 @@ async def restart_bot(b, m):
     blocked = 0
     start_time = time.time()
     total_users = await digital_botz.total_users_count()
-    all_users = await digital_botz.get_all_users()
-    async for user in all_users:
+    all_users = await digital_botz.get_all_users() # Now a List
+    for user in all_users: # Changed from async for
         try:
             restart_msg = (
                 f"ʜᴇʏ, {(await b.get_users(user['_id'])).mention}\n\n"
@@ -400,8 +400,8 @@ async def _banned_users(_, m: Message):
     all_banned_users = await digital_botz.get_all_banned_users()
     banned_usr_count = 0
     text = ''
-    async for banned_user in all_banned_users:
-        user_id = banned_user['id']
+    for banned_user in all_banned_users: # Changed from async for
+        user_id = banned_user['_id'] # Fixed KeyError: 'id' -> '_id'
         ban_duration = banned_user['ban_status']['ban_duration']
         banned_on = banned_user['ban_status']['banned_on']
         ban_reason = banned_user['ban_status']['ban_reason']
@@ -428,7 +428,7 @@ async def broadcast_handler(bot: Client, m: Message):
         Config.LOG_CHANNEL,
         f"{m.from_user.mention} or {m.from_user.id} ʜᴀꜱ ꜱᴛᴀʀᴛᴇᴅ ᴀ Bʀᴏᴀᴅᴄᴀꜱᴛ......🌋"
     )
-    all_users = await digital_botz.get_all_users()
+    all_users = await digital_botz.get_all_users() # Now a List
     broadcast_msg = m.reply_to_message
     sts_msg = await m.reply_text("Bʀᴏᴀᴅᴄᴀꜱᴛ Sᴛᴀʀᴛᴇᴅ..!") 
     done = 0
@@ -436,7 +436,7 @@ async def broadcast_handler(bot: Client, m: Message):
     success = 0
     start_time = time.time()
     total_users = await digital_botz.total_users_count()
-    async for user in all_users:
+    for user in all_users: # Changed from async for
         sts = await send_msg(user['_id'], broadcast_msg)
         if sts == 200:
             success += 1
