@@ -105,15 +105,18 @@ class Database:
     # --- 🛡️ BULLETPROOF QUERIES (Bypassing Pydantic for large lists) ---
     async def get_all_users(self):
         """Uses raw PyMongo to bypass strict Pydantic validation on messy legacy data"""
-        return await self.db["user"].find({}).to_list(length=None)
+        cursor = self.db["user"].find({})
+        return await cursor.to_list(length=None)
         
     async def get_all_banned_users(self):
         """Uses raw PyMongo to fetch banned users safely"""
-        return await self.db["user"].find({"ban_status.is_banned": True}).to_list(length=None)
+        cursor = self.db["user"].find({"ban_status.is_banned": True})
+        return await cursor.to_list(length=None)
 
     async def get_all_premium_users(self):
         """Uses raw PyMongo to fetch premium users safely"""
-        return await self.db["premium"].find({"expiry_time": {"$gt": datetime.datetime.now()}}).to_list(length=None)
+        cursor = self.db["premium"].find({"expiry_time": {"$gt": datetime.datetime.now()}})
+        return await cursor.to_list(length=None)
     # -------------------------------------------------------------------
 
     async def delete_user(self, user_id: int):
