@@ -220,6 +220,9 @@ async def refunc(client, message):
             reply_to_message_id=file.id,
             reply_markup=InlineKeyboardMarkup(button)
         )
+    else:
+        # CRITICAL FIX: If it is not a ForceReply (like when using /broadcast), pass it along!
+        await message.continue_propagation()
 
 
 @Client.on_callback_query(filters.regex("upload"))
