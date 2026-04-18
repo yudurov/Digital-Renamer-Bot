@@ -5,7 +5,7 @@
 # Developer @RknDeveloperr
 """
 Apache License 2.0
-Copyright (c) 2022 @Digital_Botz
+Copyright (c) 2025 @Digital_Botz
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,31 +35,109 @@ logger.setLevel(logging.INFO)
 @Client.on_message(filters.command(["stats", "status"]) & filters.user(Config.ADMIN))
 async def get_stats(bot, message):
     total_users = await digital_botz.total_users_count()
-    if bot.premium:
-        total_premium_users = await digital_botz.total_premium_users_count()
-    else:
-        total_premium_users = "Disabled ✅"
-
-    uptime_seconds = int(time.time() - bot.uptime)
-    days, remainder = divmod(uptime_seconds, 86400)
+    
+    # Calculate Uptime Manually to avoid 24h reset
+    now = time.time()
+    diff = int(now - bot.uptime)
+    days, remainder = divmod(diff, 86400)
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
-    uptime = f"{days}d {hours}h {minutes}m {seconds}s"
+    
+    # Format the string dynamically
+    uptime = ""
+    if days > 0:
+        uptime += f"{days}d "
+    if hours > 0 or days > 0:
+        uptime += f"{hours}h "
+    uptime += f"{minutes}m {seconds}s"
+    
+    # --- ACCURATE PREMIUM COUNT ---
+    total_premium_users = await digital_botz.total_premium_users_count()
 
     start_t = time.time()
     rkn = await message.reply('**ᴘʀᴏᴄᴇssɪɴɢ.....**')    
     end_t = time.time()
     time_taken_s = (end_t - start_t) * 1000
+    
+    await rkn.edit(text=f"**--Bᴏᴛ Sᴛᴀᴛᴜꜱ--** \n\n**⌚️ Bᴏᴛ Uᴩᴛɪᴍᴇ:** {uptime} \n**🐌 Cᴜʀʀᴇɴᴛ Pɪɴɢ:** `{time_taken_s:.3f} ᴍꜱ` \n**👭 Tᴏᴛᴀʟ Uꜱᴇʀꜱ:** `{total_users}`\n**💸 Tᴏᴛᴀʟ Pʀᴇᴍɪᴜᴍ Uꜱᴇʀꜱ:** `{total_premium_users}`")
 
-    await rkn.edit(text=(
-        f"**--Bᴏᴛ Sᴛᴀᴛᴜꜱ--** \n\n"
-        f"**⌚️ Bᴏᴛ Uᴩᴛɪᴍᴇ:** {uptime} \n"
-        f"**🐌 Cᴜʀʀᴇɴᴛ Pɪɴɢ:** `{time_taken_s:.3f} ᴍꜱ` \n"
-        f"**👭 Tᴏᴛᴀʟ Uꜱᴇʀꜱ:** `{total_users}`\n"
-        f"**💸 ᴛᴏᴛᴀʟ ᴘʀᴇᴍɪᴜᴍ ᴜsᴇʀs:** `{total_premium_users}`"
-    ))
+# --- ADD / REMOVE PREMIUM COMMANDS ---
+@Client.on_message(filters.command(["addprem", "addpremium", "add_premium"]) & filters.user(Config.ADMIN))
+async def add_premium_user(bot, message):
+    if len(message.command) < 2:
+        await message.reply_text(
+            "⚠️ **Usage:** `/addprem user_id [days]`\n\n"
+            "Example for 1 Month: `/addprem 123456789 30`\n"
+            "Example for Lifetime: `/addprem 123456789 0`\n"
+            "If days are not provided, it defaults to 30 days."
+        )
+        return
 
+    try:
+        user_id = int(message.command[1])
+        days = int(message.command[2]) if len(message.command) > 2 else 30 # Default to 1 Month
+        
+        if not await digital_botz.is_user_exist(user_id):
+            return await message.reply_text("⚠️ User not found in database. They need to start the bot first.")
 
+        # Update DB
+        await digital_botz.add_premium(user_id, days)
+        
+        # Set dynamic text for Lifetime
+        plan_text = "Lifetime ♾️" if days == 0 else f"{days} days"
+        
+        await message.reply_text(f"✅ **Successfully upgraded user `{user_id}` to Premium for {plan_text}!**")
+        
+        # Try to notify the user
+        try:
+            await bot.send_message(
+                user_id, 
+                f"🎉 **Congratulations!**\n\n"
+                f"Your payment was successful! You have been upgraded to **Premium Status** for **{plan_text}**! 🌟\n\n"
+                "**Premium Features Unlocked:**\n"
+                "• ♾️ No 6GB Daily Limit\n"
+                "• 🚀 Upload files larger than 2GB\n"
+                "• ⚡ Priority Processing\n\n"
+                "Thank you for your support! Check your status anytime using /myplan"
+            )
+        except:
+            pass # User might have blocked the bot
+            
+    except ValueError:
+        await message.reply_text("⚠️ **Error:** User ID and Days must be numbers.")
+    except Exception as e:
+        await message.reply_text(f"⚠️ **Error:** {e}")
+
+@Client.on_message(filters.command(["rmprem", "removepremium", "remove_premium"]) & filters.user(Config.ADMIN))
+async def remove_premium_user(bot, message):
+    if len(message.command) == 1:
+        await message.reply_text("⚠️ **Usage:** `/rmprem user_id`\n\nExample: `/rmprem 123456789`")
+        return
+
+    try:
+        user_id = int(message.command[1])
+        if not await digital_botz.is_user_exist(user_id):
+            return await message.reply_text("⚠️ User not found in database.")
+
+        await digital_botz.remove_premium(user_id)
+        await message.reply_text(f"✅ **Successfully removed Premium status from user `{user_id}`.**")
+        
+        # Try to notify the user
+        try:
+            await bot.send_message(
+                user_id, 
+                "⚠️ **Your Premium Subscription has ended or been revoked.**\n\n"
+                "You have been moved back to the free tier. Send `/plans` to check out our cheap plans starting at just 1 USDT, or contact Admin to renew!"
+            )
+        except:
+            pass
+            
+    except ValueError:
+        await message.reply_text("⚠️ **Error:** User ID must be a number.")
+    except Exception as e:
+        await message.reply_text(f"⚠️ **Error:** {e}")
+
+# bot logs process 
 @Client.on_message(filters.command('logs') & filters.user(Config.ADMIN))
 async def log_file(b, m):
     try:
@@ -67,226 +145,10 @@ async def log_file(b, m):
     except Exception as e:
         await m.reply(str(e))
 
-
-@Client.on_message(filters.command(["addpremium", "add_premium"]) & filters.user(Config.ADMIN))
-async def add_premium(client, message):
-    if not client.premium:
-        return await message.reply_text("premium mode disabled ✅")
-     
-    if client.uploadlimit:
-        if len(message.command) < 4:
-            return await message.reply_text(
-                "📜 **Usage:** `/addpremium user_id Plan_Type time`\n\n"
-                "🔹 **Plan_Type:** `Pro`, `UltraPro`\n"
-                "⏱️ **Time Format:**\n"
-                "• `1 min` → minutes\n"
-                "• `1 hour` → hours\n"
-                "• `1 day` → days\n"
-                "• `1 month` → months\n"
-                "• `1 year` → year\n\n"
-                "📃 **Example:** `/addpremium 6318135266 Pro 1 month`",
-                quote=True
-            )
-
-        user_id = int(message.command[1])
-        plan_type = message.command[2]
-
-        if plan_type not in ["Pro", "UltraPro"]:
-            return await message.reply_text("🧩 Invalid Plan Type. Please use '`Pro`' or '`UltraPro`' ", quote=True)
-
-        time_string = " ".join(message.command[3:])
-
-        time_zone = datetime.datetime.now(pytz.timezone("Africa/Nairobi"))
-        current_time = time_zone.strftime("%d-%m-%Y\n⏱️ ᴊᴏɪɴɪɴɢ ᴛɪᴍᴇ : %I:%M:%S %p")
-
-        try:
-            user = await client.get_users(user_id)
-            user_mention = user.mention
-        except:
-            user_mention = f"User ID {user_id}"
-
-        if plan_type == "Pro":
-            limit = 107374182400
-            type = "Pro"
-        elif plan_type == "UltraPro":
-            limit = 1073741824000
-            type = "UltraPro"
-
-        seconds = await get_seconds(time_string)
-        if seconds <= 0:
-            return await message.reply_text(
-                "⏰ Invalid time format. Please use `/addpremium user_id 1 year 1 month 1 day 1 hour 1 min`",
-                quote=True
-            )
-
-        expiry_time = datetime.datetime.now() + datetime.timedelta(seconds=seconds)
-        user_data = {"id": user_id, "expiry_time": expiry_time}
-        await digital_botz.addpremium(user_id, user_data, limit, type)
-
-        user_data = await digital_botz.get_user_data(user_id)
-        limit = user_data.get('uploadlimit', 0) if user_data else limit
-        type = user_data.get('usertype', "Free") if user_data else type
-        
-        data = await digital_botz.get_user(user_id)
-        expiry = data.get("expiry_time") if data else expiry_time
-        
-        if isinstance(expiry, datetime.datetime):
-            expiry_str_in_ist = expiry.astimezone(
-                pytz.timezone("Africa/Nairobi")
-            ).strftime("%d-%m-%Y\n⏱️ ᴇxᴘɪʀʏ ᴛɪᴍᴇ : %I:%M:%S %p")
-        else:
-            expiry_str_in_ist = str(expiry)
-
-        await message.reply_text(
-            f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ✅\n\n"
-            f"👤 ᴜꜱᴇʀ : {user_mention}\n"
-            f"⚡ ᴜꜱᴇʀ ɪᴅ : <code>{user_id}</code>\n"
-            f"ᴘʟᴀɴ :- `{type}`\n"
-            f"ᴅᴀɪʟʏ ᴜᴘʟᴏᴀᴅ ʟɪᴍɪᴛ :- `{humanbytes(limit)}`\n"
-            f"⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{time_string}</code>\n\n"
-            f"⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n"
-            f"⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}",
-            quote=True,
-            disable_web_page_preview=True
-        )
-
-        try:
-            await client.send_message(
-                chat_id=user_id,
-                text=(
-                    f"👋 ʜᴇʏ {user_mention},\n"
-                    f"ᴛʜᴀɴᴋ ʏᴏᴜ ꜰᴏʀ ᴘᴜʀᴄʜᴀꜱɪɴɢ ᴘʀᴇᴍɪᴜᴍ.\n"
-                    f"ᴇɴᴊᴏʏ !! ✨🎉\n\n"
-                    f"⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{time_string}</code>\n"
-                    f"ᴘʟᴀɴ :- `{type}`\n"
-                    f"ᴅᴀɪʟʏ ᴜᴘʟᴏᴀᴅ ʟɪᴍɪᴛ :- `{humanbytes(limit)}`\n"
-                    f"⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n"
-                    f"⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}"
-                ),
-                disable_web_page_preview=True              
-            )
-        except:
-            pass
-
-    else:
-        if len(message.command) < 3:
-            return await message.reply_text(
-                "📜 **Usage:** `/addpremium user_id time`\n\n"
-                "⏱️ **Time Format:**\n"
-                "• `1 min` → minutes\n"
-                "• `1 hour` → hours\n"
-                "• `1 day` → days\n"
-                "• `1 month` → months\n"
-                "• `1 year` → year\n\n"
-                "📃 **Example:** `/addpremium 6318135266 1 month`",
-                quote=True
-            )
-
-        user_id = int(message.command[1])
-        time_string = " ".join(message.command[2:])
-
-        time_zone = datetime.datetime.now(pytz.timezone("Africa/Nairobi"))
-        current_time = time_zone.strftime("%d-%m-%Y\n⏱️ ᴊᴏɪɴɪɴɢ ᴛɪᴍᴇ : %I:%M:%S %p")
-
-        try:
-            user = await client.get_users(user_id)
-            user_mention = user.mention
-        except:
-            user_mention = f"User ID {user_id}"
-
-        seconds = await get_seconds(time_string)
-        if seconds <= 0:
-            return await message.reply_text(
-                "Invalid time format. Please use `/addpremium user_id 1 year 1 month 1 day 1 min 10 s`",
-                quote=True
-            )
-
-        expiry_time = datetime.datetime.now() + datetime.timedelta(seconds=seconds)
-        user_data = {"id": user_id, "expiry_time": expiry_time}
-        await digital_botz.addpremium(user_id, user_data)
-        
-        data = await digital_botz.get_user(user_id)
-        expiry = data.get("expiry_time") if data else expiry_time
-        
-        if isinstance(expiry, datetime.datetime):
-            expiry_str_in_ist = expiry.astimezone(
-                pytz.timezone("Africa/Nairobi")
-            ).strftime("%d-%m-%Y\n⏱️ ᴇxᴘɪʀʏ ᴛɪᴍᴇ : %I:%M:%S %p")
-        else:
-            expiry_str_in_ist = str(expiry)
-
-        await message.reply_text(
-            f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜꜱꜱᴇꜱꜰᴜʟʟʏ ✅\n\n"
-            f"👤 ᴜꜱᴇʀ : {user_mention}\n"
-            f"⚡ ᴜꜱᴇʀ ɪᴅ : <code>{user_id}</code>\n"
-            f"⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{time_string}</code>\n\n"
-            f"⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n"
-            f"⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}",
-            quote=True,
-            disable_web_page_preview=True
-        )
-
-        try:
-            await client.send_message(
-                chat_id=user_id,
-                text=(
-                    f"👋 ʜᴇʏ {user_mention},\n"
-                    f"ᴛʜᴀɴᴋ ʏᴏᴜ ꜰᴏʀ ᴘᴜʀᴄʜᴀꜱɪɴɢ ᴘʀᴇᴍɪᴜᴍ.\n"
-                    f"ᴇɴᴊᴏʏ !! ✨🎉\n\n"
-                    f"⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{time_string}</code>\n"
-                    f"⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n"
-                    f"⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}"
-                ),
-                disable_web_page_preview=True              
-            )
-        except:
-            pass
-
-
-@Client.on_message(filters.command(["removepremium", "remove_premium"]) & filters.user(Config.ADMIN))
-async def remove_premium(bot, message):
-    if not bot.premium:
-        return await message.reply_text("premium mode disabled ✅")
-     
-    if len(message.command) == 2:
-        user_id = int(message.command[1])
-        try:
-            user = await bot.get_users(user_id)
-            user_mention = user.mention
-        except:
-            user_mention = f"User ID {user_id}"
-
-        if await digital_botz.has_premium_access(user_id):
-            await digital_botz.remove_premium(user_id)
-            await message.reply_text(
-                f"ʜᴇʏ {user_mention}, ᴘʀᴇᴍɪᴜᴍ ᴘʟᴀɴ sᴜᴄᴄᴇssғᴜʟʟʏ ʀᴇᴍᴏᴠᴇᴅ.",
-                quote=True
-            )
-            try:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=(
-                        f"<b>ʜᴇʏ {user_mention},\n\n"
-                        f"✨ ʏᴏᴜʀ ᴀᴄᴄᴏᴜɴᴛ ʜᴀs ʙᴇᴇɴ ʀᴇᴍᴏᴠᴇᴅ ᴛᴏ ᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴘʟᴀɴ\n\n"
-                        f"ᴄʜᴇᴄᴋ ʏᴏᴜʀ ᴘʟᴀɴ ʜᴇʀᴇ /myplan</b>"
-                    )
-                )
-            except: pass
-        else:
-            await message.reply_text(
-                "ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀ !\nᴀʀᴇ ʏᴏᴜ ꜱᴜʀᴇ, ɪᴛ ᴡᴀꜱ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀ ɪᴅ ?",
-                quote=True
-            )
-    else:
-        await message.reply_text("📜 ᴜꜱᴀɢᴇ : `/remove_premium ᴜꜱᴇʀ ɪᴅ`", quote=True)
-
-
+# Restart to cancel all process 
 @Client.on_message(filters.private & filters.command("restart") & filters.user(Config.ADMIN))
 async def restart_bot(b, m):
-    rkn = await b.send_message(
-        text="**🔄 ᴘʀᴏᴄᴇssᴇs sᴛᴏᴘᴘᴇᴅ. ʙᴏᴛ ɪs ʀᴇsᴛᴀʀᴛɪɴɢ.....**",
-        chat_id=m.chat.id
-    )
+    rkn = await b.send_message(text="**🔄 ᴘʀᴏᴄᴇssᴇs sᴛᴏᴘᴘᴇᴅ. ʙᴏᴛ ɪs ʀᴇsᴛᴀʀᴛɪɴɢ.....**", chat_id=m.chat.id)
     
     try:
         failed = 0
@@ -295,9 +157,12 @@ async def restart_bot(b, m):
         blocked = 0
         start_time = time.time()
         total_users = await digital_botz.total_users_count()
+        
+        # Safely get all users as a list
         all_users = await digital_botz.get_all_users()
         
         for user in all_users: 
+            # Bulletproof ID extraction
             user_id = user.get('_id', user.get('id'))
             if not user_id:
                 continue
@@ -320,6 +185,7 @@ async def restart_bot(b, m):
                 pass
                 
             try:
+                # Update admin periodically, not every single user
                 if (success + failed + deactivated + blocked) % 50 == 0:
                     await rkn.edit(
                         f"<u>ʀᴇsᴛᴀʀᴛ ɪɴ ᴩʀᴏɢʀᴇꜱꜱ:</u>\n\n"
@@ -346,7 +212,6 @@ async def restart_bot(b, m):
         await rkn.edit(f"⚠️ **Critical Error during Restart:**\n\n`{e}`\n\n`{traceback_str[-800:]}`")
         
     os.execl(sys.executable, sys.executable, *sys.argv)
-
 
 @Client.on_message(filters.private & filters.command("ban") & filters.user(Config.ADMIN))
 async def ban(c: Client, m: Message):
@@ -382,7 +247,6 @@ async def ban(c: Client, m: Message):
     except Exception as e:
         await m.reply_text(f"🧪 Error occurred!\n\n`{e}`", quote=True)
 
-
 @Client.on_message(filters.private & filters.command("unban") & filters.user(Config.ADMIN))
 async def unban(c: Client, m: Message):
     if len(m.command) == 1:
@@ -411,35 +275,41 @@ async def unban(c: Client, m: Message):
     except Exception as e:
         await m.reply_text(f"🧪 Error occurred!\n\n`{e}`", quote=True)
 
-
 @Client.on_message(filters.private & filters.command("banned_users") & filters.user(Config.ADMIN))
 async def _banned_users(_, m: Message):
-    all_banned_users = await digital_botz.get_all_banned_users()
-    banned_usr_count = 0
-    text = ''
-    for banned_user in all_banned_users: 
-        user_id = banned_user.get('_id', banned_user.get('id')) 
-        ban_status = banned_user.get('ban_status', {})
-        ban_duration = ban_status.get('ban_duration', 0)
-        banned_on = ban_status.get('banned_on', 'Unknown')
-        ban_reason = ban_status.get('ban_reason', 'None')
-        banned_usr_count += 1
-        text += (
-            f"> **user_id**: `{user_id}`, "
-            f"**Ban Duration**: `{ban_duration}`, "
-            f"**Banned on**: `{banned_on}`, "
-            f"**Reason**: `{ban_reason}`\n\n"
-        )
-    reply_text = f"📜 Total banned user(s): `{banned_usr_count}`\n\n{text}"
-    if len(reply_text) > 4096:
-        with open('banned-users.txt', 'w') as f:
-            f.write(reply_text)
-        await m.reply_document('banned-users.txt', True)
-        os.remove('banned-users.txt')
-        return
-    await m.reply_text(reply_text, True)
+    try:
+        all_banned_users = await digital_botz.get_all_banned_users()
+        banned_usr_count = 0
+        text = ''
+        for banned_user in all_banned_users: 
+            user_id = banned_user.get('_id', banned_user.get('id')) 
+            ban_status = banned_user.get('ban_status', {})
+            ban_duration = ban_status.get('ban_duration', 0)
+            banned_on = ban_status.get('banned_on', 'Unknown')
+            ban_reason = ban_status.get('ban_reason', 'None')
+            banned_usr_count += 1
+            text += (
+                f"> **user_id**: `{user_id}`, "
+                f"**Ban Duration**: `{ban_duration}`, "
+                f"**Banned on**: `{banned_on}`, "
+                f"**Reason**: `{ban_reason}`\n\n"
+            )
+        reply_text = f"📜 Total banned user(s): `{banned_usr_count}`\n\n{text}"
+        
+        if len(reply_text) > 4096:
+            with open('banned-users.txt', 'w') as f:
+                f.write(reply_text)
+            await m.reply_document('banned-users.txt', True)
+            os.remove('banned-users.txt')
+            return
+            
+        await m.reply_text(reply_text, True)
+    except Exception as e:
+        traceback_str = traceback.format_exc()
+        await m.reply_text(f"⚠️ **Error Fetching Banned Users:**\n\n`{e}`\n\n`{traceback_str[-800:]}`")
 
      
+# REMOVED filters.reply FROM THIS LINE
 @Client.on_message(filters.command("broadcast") & filters.user(Config.ADMIN))
 async def broadcast_handler(bot: Client, m: Message):
     # Enforce replying to a message
