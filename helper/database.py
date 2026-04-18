@@ -243,9 +243,6 @@ class Database:
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         return prem.model_dump(by_alias=True) if prem else {}
 
-    # ==========================================
-    # --- PREMIUM & LIMIT FUNCTIONS ---
-    # ==========================================
     async def add_premium(self, user_id: int, user_data: dict, limit=None, type=None):    
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         if not prem:
