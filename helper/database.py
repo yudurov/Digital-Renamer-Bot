@@ -50,6 +50,8 @@ class PremiumUser(Document):
     user_id: int = Field(alias="id")
     expiry_time: Optional[datetime.datetime] = None
     has_free_trial: bool = False
+    is_lifetime: bool = False   # <--- ADDED: Lifetime Plan Support
+    notified_24h: bool = False  # <--- ADDED: 24h Expiry Notification Support
 
     class Settings:
         name = "premium"
@@ -115,7 +117,12 @@ class Database:
 
     async def get_all_premium_users(self):
         """Uses raw PyMongo to fetch premium users safely"""
-        cursor = self.db["premium"].find({"expiry_time": {"$gt": datetime.datetime.now()}})
+        cursor = self.db["premium"].find({
+            "$or": [
+                {"expiry_time": {"$gt": datetime.datetime.now()}},
+                {"is_lifetime": True}
+            ]
+        })
         return await cursor.to_list(length=None)
     # -------------------------------------------------------------------
 
@@ -236,6 +243,9 @@ class Database:
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         return prem.model_dump(by_alias=True) if prem else {}
 
+    # ==========================================
+    # --- PREMIUM & LIMIT FUNCTIONS ---
+    # ==========================================
     async def add_premium(self, user_id: int, user_data: dict, limit=None, type=None):    
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         if not prem:
@@ -243,6 +253,8 @@ class Database:
         
         prem.expiry_time = user_data.get("expiry_time")
         prem.has_free_trial = user_data.get("has_free_trial", False)
+        prem.is_lifetime = user_data.get("is_lifetime", False) # Support for lifetime
+        prem.notified_24h = False # Reset notification flag
         await prem.save()
         
         if Config.UPLOAD_LIMIT_MODE and limit and type:
@@ -259,6 +271,8 @@ class Database:
         if prem:
             prem.expiry_time = None
             prem.has_free_trial = False
+            prem.is_lifetime = False
+            prem.notified_24h = False
             await prem.save()
         
         if Config.UPLOAD_LIMIT_MODE and limit and type:
@@ -270,14 +284,19 @@ class Database:
           
     async def checking_remaining_time(self, user_id: int):
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
-        if prem and prem.expiry_time:
-            time_left_str = prem.expiry_time - datetime.datetime.now()
-            return time_left_str
+        if prem:
+            if getattr(prem, "is_lifetime", False):
+                return "Lifetime"
+            if prem.expiry_time:
+                time_left_str = prem.expiry_time - datetime.datetime.now()
+                return time_left_str
         return datetime.timedelta(0)
 
     async def has_premium_access(self, user_id: int):
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         if prem:
+            if getattr(prem, "is_lifetime", False):
+                return True
             if prem.expiry_time is None:
                 return False
             elif isinstance(prem.expiry_time, datetime.datetime) and datetime.datetime.now() <= prem.expiry_time:
@@ -287,7 +306,12 @@ class Database:
         return False
 
     async def total_premium_users_count(self):
-        return await PremiumUser.find(PremiumUser.expiry_time > datetime.datetime.now()).count()
+        return await self.db["premium"].count_documents({
+            "$or": [
+                {"expiry_time": {"$gt": datetime.datetime.now()}},
+                {"is_lifetime": True}
+            ]
+        })
 
     async def get_free_trial_status(self, user_id: int):
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
@@ -299,7 +323,8 @@ class Database:
         user_data = {
             "id": user_id, 
             "expiry_time": expiry_time, 
-            "has_free_trial": True
+            "has_free_trial": True,
+            "is_lifetime": False
         }
         
         if Config.UPLOAD_LIMIT_MODE:
@@ -342,6 +367,30 @@ class Database:
     async def get_network_stats(self):
         stats = await BotStats.get("network_stats")
         return {"sent": stats.sent, "recv": stats.recv} if stats else {"sent": 0, "recv": 0}
+
+    # ==========================================
+    # --- 24-HOUR EXPIRY NOTIFICATION UTILS ---
+    # ==========================================
+    async def get_expiring_users(self):
+        """Fetches users who expire in the next 24 hours and haven't been notified"""
+        now = datetime.datetime.now()
+        target_time = now + datetime.timedelta(hours=24)
+        
+        # Raw pymongo to fetch safely (excludes lifetime users automatically)
+        cursor = self.db["premium"].find({
+            "is_lifetime": {"$ne": True},
+            "expiry_time": {"$gt": now, "$lte": target_time},
+            "notified_24h": False
+        })
+        
+        return await cursor.to_list(length=None)
+
+    async def mark_notified(self, user_id: int):
+        """Marks the user so they don't get spammed every hour"""
+        prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
+        if prem:
+            prem.notified_24h = True
+            await prem.save()
 
     # --- PERSISTENT QUEUE (TASK) FUNCTIONS ---
     async def add_task(self, user_id: int, file_msg_id: int, new_name: str, upload_type: str):
