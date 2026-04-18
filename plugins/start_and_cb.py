@@ -155,8 +155,19 @@ async def myplan(client, message):
     
     if await digital_botz.has_premium_access(user_id):
         data = await digital_botz.get_user(user_id)
-        expiry_str_in_ist = data.get("expiry_time")
-        time_left_str = expiry_str_in_ist - datetime.datetime.now()
+        
+        # --- LIFETIME PLAN FIX ---
+        if data.get("is_lifetime", False):
+            expiry_str_in_ist = "Lifetime ♾️"
+            time_left_str = "Unlimited ♾️"
+        else:
+            expiry_str_in_ist = data.get("expiry_time")
+            if expiry_str_in_ist:
+                time_left_str = expiry_str_in_ist - datetime.datetime.now()
+            else:
+                expiry_str_in_ist = "Unknown"
+                time_left_str = "Unknown"
+        # -------------------------
 
         text = f"👤 ᴜꜱᴇʀ :- {user}\n🆔 ᴜꜱᴇʀ ɪᴅ :- <code>{user_id}</code>\n"
 
@@ -167,6 +178,10 @@ async def myplan(client, message):
             used = user_data.get('used_limit', 0)
             remain = int(limit) - int(used)
             type = user_data.get('usertype', "Free")
+            
+            # Override plan text if lifetime
+            if data.get("is_lifetime", False):
+                type = "Lifetime ♾️"
 
             text += f"📦 ᴘʟᴀɴ :- `{type}`\n📈 ᴅᴀɪʟʏ ᴜᴘʟᴏᴀᴅ ʟɪᴍɪᴛ :- `{humanbytes(limit)}`\n📊 ᴛᴏᴅᴀʏ ᴜsᴇᴅ :- `{humanbytes(used)}`\n🧮 ʀᴇᴍᴀɪɴ :- `{humanbytes(remain)}`\n\n"
 
@@ -290,7 +305,7 @@ async def cb_handler(client, query: CallbackQuery):
         await query.message.delete()
         free_trial_status = await digital_botz.get_free_trial_status(query.from_user.id)
         if not free_trial_status:
-            await digital_botz.give_free_trail(query.from_user.id)
+            await digital_botz.give_free_trial(query.from_user.id)
             new_text = "**ʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴛʀɪᴀʟ ʜᴀs ʙᴇᴇɴ ᴀᴅᴅᴇᴅ ғᴏʀ 𝟷𝟸 ʜᴏᴜʀs...**"
         else:
             new_text = "**🤣 ʏᴏᴜ ᴀʟʀᴇᴀᴅʏ ᴜsᴇᴅ ғʀᴇᴇ...**"
