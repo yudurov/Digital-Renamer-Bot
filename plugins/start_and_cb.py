@@ -305,6 +305,7 @@ async def cb_handler(client, query: CallbackQuery):
         await query.message.delete()
         free_trial_status = await digital_botz.get_free_trial_status(query.from_user.id)
         if not free_trial_status:
+            # FIXED TYPO from give_free_trail to give_free_trial to match DB
             await digital_botz.give_free_trial(query.from_user.id)
             new_text = "**ʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴛʀɪᴀʟ ʜᴀs ʙᴇᴇɴ ᴀᴅᴅᴇᴅ ғᴏʀ 𝟷𝟸 ʜᴏᴜʀs...**"
         else:
