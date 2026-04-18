@@ -50,8 +50,8 @@ class PremiumUser(Document):
     user_id: int = Field(alias="id")
     expiry_time: Optional[datetime.datetime] = None
     has_free_trial: bool = False
-    is_lifetime: bool = False   # <--- ADDED: Lifetime Plan Support
-    notified_24h: bool = False  # <--- ADDED: 24h Expiry Notification Support
+    is_lifetime: bool = False   
+    notified_24h: bool = False  
 
     class Settings:
         name = "premium"
@@ -249,9 +249,14 @@ class Database:
             prem = PremiumUser(user_id=user_id)
         
         prem.expiry_time = user_data.get("expiry_time")
-        prem.has_free_trial = user_data.get("has_free_trial", False)
-        prem.is_lifetime = user_data.get("is_lifetime", False) # Support for lifetime
-        prem.notified_24h = False # Reset notification flag
+        
+        # TRIAL FIX 1: Only update the trial flag if specifically passed!
+        # This stops Admin plan upgrades from wiping out their old trial record
+        if "has_free_trial" in user_data:
+            prem.has_free_trial = user_data["has_free_trial"]
+            
+        prem.is_lifetime = user_data.get("is_lifetime", False) 
+        prem.notified_24h = False 
         await prem.save()
         
         if Config.UPLOAD_LIMIT_MODE and limit and type:
@@ -267,7 +272,8 @@ class Database:
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         if prem:
             prem.expiry_time = None
-            prem.has_free_trial = False
+            # TRIAL FIX 2: DO NOT reset has_free_trial to False here! 
+            # Let it remain True so the bot remembers they already had a trial
             prem.is_lifetime = False
             prem.notified_24h = False
             await prem.save()
