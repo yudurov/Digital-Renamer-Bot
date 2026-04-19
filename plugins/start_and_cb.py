@@ -179,11 +179,16 @@ async def myplan(client, message):
             remain = int(limit) - int(used)
             type = user_data.get('usertype', "Free")
             
-            # Override plan text if lifetime
+            # PERFECT LIFETIME LIMITS FIX
             if data.get("is_lifetime", False):
                 type = "Lifetime ♾️"
+                limit_text = "Unlimited ♾️"
+                remain_text = "Unlimited ♾️"
+            else:
+                limit_text = humanbytes(limit)
+                remain_text = humanbytes(remain)
 
-            text += f"📦 ᴘʟᴀɴ :- `{type}`\n📈 ᴅᴀɪʟʏ ᴜᴘʟᴏᴀᴅ ʟɪᴍɪᴛ :- `{humanbytes(limit)}`\n📊 ᴛᴏᴅᴀʏ ᴜsᴇᴅ :- `{humanbytes(used)}`\n🧮 ʀᴇᴍᴀɪɴ :- `{humanbytes(remain)}`\n\n"
+            text += f"📦 ᴘʟᴀɴ :- `{type}`\n📈 ᴅᴀɪʟʏ ᴜᴘʟᴏᴀᴅ ʟɪᴍɪᴛ :- `{limit_text}`\n📊 ᴛᴏᴅᴀʏ ᴜsᴇᴅ :- `{humanbytes(used)}`\n🧮 ʀᴇᴍᴀɪɴ :- `{remain_text}`\n\n"
 
         text += f"⏳ ᴛɪᴍᴇ ʟᴇꜰᴛ : {time_left_str}\n\n📅 ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}"
 
@@ -305,7 +310,6 @@ async def cb_handler(client, query: CallbackQuery):
         await query.message.delete()
         free_trial_status = await digital_botz.get_free_trial_status(query.from_user.id)
         if not free_trial_status:
-            # FIXED TYPO from give_free_trail to give_free_trial to match DB
             await digital_botz.give_free_trial(query.from_user.id)
             new_text = "**ʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴛʀɪᴀʟ ʜᴀs ʙᴇᴇɴ ᴀᴅᴅᴇᴅ ғᴏʀ 𝟷𝟸 ʜᴏᴜʀs...**"
         else:
