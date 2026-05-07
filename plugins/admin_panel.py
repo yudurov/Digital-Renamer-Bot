@@ -6,15 +6,6 @@
 """
 Apache License 2.0
 Copyright (c) 2022 @Digital_Botz
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
 """
 
 # extra imports
@@ -91,17 +82,22 @@ async def leaderboard_cmd(bot, message):
             first_name = user.get('first_name')
             username = user.get('username')
             
-            # FALLBACK: If name is missing in old DB entries, fetch from Telegram
-            if not first_name:
+            # FALLBACK: Fetch missing names & save to DB so it doesn't lag next time
+            if not first_name or first_name == "User":
                 try:
                     tg_user = await bot.get_users(u_id)
                     first_name = tg_user.first_name or "User"
                     username = tg_user.username
+                    await digital_botz.db["user"].update_one({"_id": u_id}, {"$set": {"first_name": first_name, "username": username}})
+                    await asyncio.sleep(0.2) # Prevent floodwait
                 except Exception:
                     first_name = "User"
 
             # Clean name to prevent markdown breaking
             first_name = str(first_name).replace('_', ' ').replace('*', '').replace('`', '').replace('[', '').replace(']', '')
+            
+            # THE MAGIC FIX: Left-to-Right Mark (\u200E) prevents Arabic letters from flipping the layout!
+            first_name = f"\u200E{first_name}\u200E"
             
             # Format clickables
             if username:
@@ -115,7 +111,7 @@ async def leaderboard_cmd(bot, message):
             text += f"{medal} **{i+1}.** {name_link} (`{u_id}`)\n"
             text += f"🚀 **Total Used:** `{humanbytes(used_bytes)}`\n\n"
         
-        # Add a tip for the other leaderboard (Using double asterisks now)
+        # Add a tip using double asterisks (No single asterisks)
         if lb_type == "lifetime":
             text += "💡 **Tip: Use `/top daily` for today's leaderboard.**"
         else:
@@ -194,7 +190,6 @@ async def add_premium(client, message):
             limit = 1073741824000
             type = "UltraPro"
 
-        # --- LIFETIME FIX START ---
         if time_string.lower() in ["lifetime", "0"]:
             expiry_time = None
             is_lifetime = True
@@ -227,7 +222,6 @@ async def add_premium(client, message):
             ).strftime("%d-%m-%Y\n⏱️ ᴇxᴘɪʀʏ ᴛɪᴍᴇ : %I:%M:%S %p")
         else:
             expiry_str_in_ist = str(expiry)
-        # --- LIFETIME FIX END ---
 
         await message.reply_text(
             f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ✅\n\n"
@@ -287,7 +281,6 @@ async def add_premium(client, message):
         except:
             user_mention = f"User ID {user_id}"
 
-        # --- LIFETIME FIX START ---
         if time_string.lower() in ["lifetime", "0"]:
             expiry_time = None
             is_lifetime = True
@@ -316,7 +309,6 @@ async def add_premium(client, message):
             ).strftime("%d-%m-%Y\n⏱️ ᴇxᴘɪʀʏ ᴛɪᴍᴇ : %I:%M:%S %p")
         else:
             expiry_str_in_ist = str(expiry)
-        # --- LIFETIME FIX END ---
 
         await message.reply_text(
             f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜᴄꜱꜱᴇꜱꜰᴜʟʟʏ ✅\n\n"
@@ -369,9 +361,9 @@ async def remove_premium(bot, message):
                 await bot.send_message(
                     chat_id=user_id,
                     text=(
-                        f"<b>ʜᴇʏ {user_mention},\n\n"
+                        f"**ʜᴇʏ {user_mention},\n\n"
                         f"✨ ʏᴏᴜʀ ᴀᴄᴄᴏᴜɴᴛ ʜᴀs ʙᴇᴇɴ ʀᴇᴍᴏᴠᴇᴅ ᴛᴏ ᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴘʟᴀɴ\n\n"
-                        f"ᴄʜᴇᴄᴋ ʏᴏᴜʀ ᴘʟᴀɴ ʜᴇʀᴇ /myplan</b>"
+                        f"ᴄʜᴇᴄᴋ ʏᴏᴜʀ ᴘʟᴀɴ ʜᴇʀᴇ /myplan**"
                     )
                 )
             except: pass
