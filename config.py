@@ -67,6 +67,7 @@ class Config(object):
     # wes response configuration     
     PORT = int(os.environ.get("PORT", "8590"))
     BOT_UPTIME = time.time()
+    WORKER_TOKENS = os.environ.get("WORKER_TOKENS", "").split(",") if os.environ.get("WORKER_TOKENS", "") else []
 
 class rkn(object):
     # part of text configuration
