@@ -59,6 +59,62 @@ async def get_stats(bot, message):
         f"**💸 ᴛᴏᴛᴀʟ ᴘʀᴇᴍɪᴜᴍ ᴜsᴇʀs:** `{total_premium_users}`"
     ))
 
+# ==========================================
+# --- LEADERBOARD COMMAND ---
+# ==========================================
+@Client.on_message(filters.command(["top", "leaderboard"]) & filters.user(Config.ADMIN))
+async def leaderboard_cmd(bot, message):
+    lb_type = "lifetime"
+    if len(message.command) > 1 and message.command[1].lower() == "daily":
+        lb_type = "daily"
+        
+    rkn = await message.reply('**📊 Fᴇᴛᴄʜɪɴɢ Lᴇᴀᴅᴇʀʙᴏᴀʀᴅ...**')
+    
+    try:
+        # Fetch Top 20 from DB
+        users = await digital_botz.get_leaderboard(lb_type=lb_type, limit=20)
+        
+        if not users:
+            return await rkn.edit("⚠️ **No data found for the leaderboard yet!**")
+            
+        title = "All-Time" if lb_type == "lifetime" else "Daily"
+        text = f"📊 **Digital Rename Bot - Top 20 {title} Uploaders** 📊\n\n"
+        
+        for i, user in enumerate(users):
+            # Medals
+            if i == 0: medal = "🥇"
+            elif i == 1: medal = "🥈"
+            elif i == 2: medal = "🥉"
+            else: medal = "🎖"
+                
+            u_id = user.get('_id', user.get('id'))
+            first_name = user.get('first_name') or "User"
+            username = user.get('username')
+            
+            # Format clickables
+            if username:
+                name_link = f"[{first_name}](https://t.me/{username})"
+            else:
+                name_link = f"[{first_name}](tg://user?id={u_id})"
+                
+            # Get Correct Bytes
+            used_bytes = user.get('lifetime_used_bytes', 0) if lb_type == "lifetime" else user.get('used_limit', 0)
+                
+            text += f"{medal} **{i+1}.** {name_link} (`{u_id}`)\n"
+            text += f"🚀 **Total Used:** `{humanbytes(used_bytes)}`\n\n"
+        
+        # Add a tip for the other leaderboard
+        if lb_type == "lifetime":
+            text += "💡 *Tip: Use `/top daily` for today's leaderboard.*"
+        else:
+            text += "💡 *Tip: Use `/top` for the all-time leaderboard.*"
+            
+        await rkn.edit(text, disable_web_page_preview=True)
+        
+    except Exception as e:
+        traceback_str = traceback.format_exc()
+        await rkn.edit(f"⚠️ **Error Fetching Leaderboard:**\n\n`{e}`")
+
 
 @Client.on_message(filters.command('logs') & filters.user(Config.ADMIN))
 async def log_file(b, m):
