@@ -187,6 +187,22 @@ def main():
     async def start_services():
         await digital_botz.init_db()
 
+        # --- INITIALIZE WORKER FLEET ---
+        Config.WORKER_CLIENTS = []
+        for i, token in enumerate(Config.WORKER_TOKENS):
+            if token.strip():
+                wc = Client(
+                    name=f"worker_{i}", 
+                    api_id=Config.API_ID, 
+                    api_hash=Config.API_HASH, 
+                    bot_token=token.strip(), 
+                    sleep_threshold=5
+                )
+                Config.WORKER_CLIENTS.append(wc)
+                await wc.start()
+                print(f"✅ Worker {i+1} Started")
+        # -------------------------------
+
         if Config.STRING_SESSION:
             await asyncio.gather(app.start(), digital_instance.start())
         else:
@@ -204,6 +220,11 @@ def main():
             await asyncio.gather(app.stop(), digital_instance.stop())
         else:
             await asyncio.gather(digital_instance.stop())
+
+        # --- STOP WORKER FLEET ---
+        for wc in Config.WORKER_CLIENTS:
+            await wc.stop()
+        # -------------------------
 
     loop = asyncio.get_event_loop()
     try:
