@@ -31,6 +31,13 @@ class BanStatus(BaseModel):
 class User(Document):
     id: int = Field(alias="_id")
     join_date: str = Field(default_factory=lambda: datetime.date.today().isoformat())
+    
+    # --- LEADERBOARD DATA CACHE ---
+    first_name: Optional[str] = None
+    username: Optional[str] = None
+    lifetime_used_bytes: int = 0
+    # ------------------------------
+    
     file_id: Optional[str] = None
     caption: Optional[str] = None
     prefix: Optional[str] = None
@@ -94,9 +101,17 @@ class Database:
     async def add_user(self, b, m):
         u = m.from_user
         if not await self.is_user_exist(u.id):
-            user = User(id=u.id)
+            # Added first_name and username caching for leaderboard
+            user = User(id=u.id, first_name=u.first_name, username=u.username)
             await user.insert()
             await send_log(b, u)
+        else:
+            # Update username cache for the leaderboard if they changed it
+            user = await User.get(u.id)
+            if user and (getattr(user, "first_name", None) != u.first_name or getattr(user, "username", None) != u.username):
+                user.first_name = u.first_name
+                user.username = u.username
+                await user.save()
 
     async def is_user_exist(self, id: int):
         return await User.get(id) is not None
@@ -193,6 +208,13 @@ class Database:
     async def set_used_limit(self, id: int, used: int):
         user = await User.get(id)
         if user:
+            # --- LEADERBOARD LIFETIME TRACKER HACK ---
+            # Calculate exactly how many bytes were just added
+            delta = used - user.used_limit
+            if delta > 0:
+                user.lifetime_used_bytes = getattr(user, "lifetime_used_bytes", 0) + delta
+            # -----------------------------------------
+            
             user.used_limit = used
             await user.save()
       
@@ -250,8 +272,6 @@ class Database:
         
         prem.expiry_time = user_data.get("expiry_time")
         
-        # TRIAL FIX 1: Only update the trial flag if specifically passed!
-        # This stops Admin plan upgrades from wiping out their old trial record
         if "has_free_trial" in user_data:
             prem.has_free_trial = user_data["has_free_trial"]
             
@@ -272,8 +292,6 @@ class Database:
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         if prem:
             prem.expiry_time = None
-            # TRIAL FIX 2: DO NOT reset has_free_trial to False here! 
-            # Let it remain True so the bot remembers they already had a trial
             prem.is_lifetime = False
             prem.notified_24h = False
             await prem.save()
@@ -375,25 +393,32 @@ class Database:
     # --- 24-HOUR EXPIRY NOTIFICATION UTILS ---
     # ==========================================
     async def get_expiring_users(self):
-        """Fetches users who expire in the next 24 hours and haven't been notified"""
         now = datetime.datetime.now()
         target_time = now + datetime.timedelta(hours=24)
-        
-        # Raw pymongo to fetch safely (excludes lifetime users automatically)
         cursor = self.db["premium"].find({
             "is_lifetime": {"$ne": True},
             "expiry_time": {"$gt": now, "$lte": target_time},
             "notified_24h": False
         })
-        
         return await cursor.to_list(length=None)
 
     async def mark_notified(self, user_id: int):
-        """Marks the user so they don't get spammed every hour"""
         prem = await PremiumUser.find_one(PremiumUser.user_id == user_id)
         if prem:
             prem.notified_24h = True
             await prem.save()
+
+    # ==========================================
+    # --- LEADERBOARD FETCH UTILS ---
+    # ==========================================
+    async def get_leaderboard(self, lb_type="lifetime", limit=20):
+        """Fetches the top users for the leaderboard. lb_type can be 'lifetime' or 'daily'"""
+        if lb_type == "lifetime":
+            cursor = self.db["user"].find({"lifetime_used_bytes": {"$gt": 0}}).sort("lifetime_used_bytes", -1).limit(limit)
+        else:
+            cursor = self.db["user"].find({"used_limit": {"$gt": 0}}).sort("used_limit", -1).limit(limit)
+        
+        return await cursor.to_list(length=limit)
 
     # --- PERSISTENT QUEUE (TASK) FUNCTIONS ---
     async def add_task(self, user_id: int, file_msg_id: int, new_name: str, upload_type: str):
