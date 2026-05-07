@@ -101,12 +101,10 @@ class Database:
     async def add_user(self, b, m):
         u = m.from_user
         if not await self.is_user_exist(u.id):
-            # Added first_name and username caching for leaderboard
             user = User(id=u.id, first_name=u.first_name, username=u.username)
             await user.insert()
             await send_log(b, u)
         else:
-            # Update username cache for the leaderboard if they changed it
             user = await User.get(u.id)
             if user and (getattr(user, "first_name", None) != u.first_name or getattr(user, "username", None) != u.username):
                 user.first_name = u.first_name
@@ -119,19 +117,15 @@ class Database:
     async def total_users_count(self):
         return await User.count()
 
-    # --- 🛡️ BULLETPROOF QUERIES (Bypassing Pydantic for large lists) ---
     async def get_all_users(self):
-        """Uses raw PyMongo to bypass strict Pydantic validation on messy legacy data"""
         cursor = self.db["user"].find({})
         return await cursor.to_list(length=None)
         
     async def get_all_banned_users(self):
-        """Uses raw PyMongo to fetch banned users safely"""
         cursor = self.db["user"].find({"ban_status.is_banned": True})
         return await cursor.to_list(length=None)
 
     async def get_all_premium_users(self):
-        """Uses raw PyMongo to fetch premium users safely"""
         cursor = self.db["premium"].find({
             "$or": [
                 {"expiry_time": {"$gt": datetime.datetime.now()}},
@@ -139,7 +133,6 @@ class Database:
             ]
         })
         return await cursor.to_list(length=None)
-    # -------------------------------------------------------------------
 
     async def delete_user(self, user_id: int):
         user = await User.get(user_id)
@@ -208,12 +201,15 @@ class Database:
     async def set_used_limit(self, id: int, used: int):
         user = await User.get(id)
         if user:
-            # --- LEADERBOARD LIFETIME TRACKER HACK ---
-            # Calculate exactly how many bytes were just added
+            # --- LEADERBOARD LIFETIME TRACKER FIX ---
             delta = used - user.used_limit
             if delta > 0:
-                user.lifetime_used_bytes = getattr(user, "lifetime_used_bytes", 0) + delta
-            # -----------------------------------------
+                lifetime = getattr(user, "lifetime_used_bytes", 0)
+                # Self-healing safety check on upload
+                if lifetime < user.used_limit:
+                    lifetime = user.used_limit
+                user.lifetime_used_bytes = lifetime + delta
+            # ----------------------------------------
             
             user.used_limit = used
             await user.save()
@@ -376,7 +372,6 @@ class Database:
         user = await User.get(id)
         return user.ban_status.model_dump() if user else BanStatus().model_dump()
 
-    # --- NETWORK STATS ---
     async def update_network_stats(self, sent_delta: int, recv_delta: int):
         stats = await BotStats.get("network_stats")
         if not stats:
@@ -389,9 +384,6 @@ class Database:
         stats = await BotStats.get("network_stats")
         return {"sent": stats.sent, "recv": stats.recv} if stats else {"sent": 0, "recv": 0}
 
-    # ==========================================
-    # --- 24-HOUR EXPIRY NOTIFICATION UTILS ---
-    # ==========================================
     async def get_expiring_users(self):
         now = datetime.datetime.now()
         target_time = now + datetime.timedelta(hours=24)
@@ -412,15 +404,19 @@ class Database:
     # --- LEADERBOARD FETCH UTILS ---
     # ==========================================
     async def get_leaderboard(self, lb_type="lifetime", limit=20):
-        """Fetches the top users for the leaderboard. lb_type can be 'lifetime' or 'daily'"""
         if lb_type == "lifetime":
+            # SELF-HEALING MIGRATION: 
+            # If a user's daily limit is higher than lifetime (due to recent update), instantly sync them in DB!
+            await self.db["user"].update_many(
+                {"$expr": {"$lt": ["$lifetime_used_bytes", "$used_limit"]}},
+                [{"$set": {"lifetime_used_bytes": "$used_limit"}}]
+            )
             cursor = self.db["user"].find({"lifetime_used_bytes": {"$gt": 0}}).sort("lifetime_used_bytes", -1).limit(limit)
         else:
             cursor = self.db["user"].find({"used_limit": {"$gt": 0}}).sort("used_limit", -1).limit(limit)
         
         return await cursor.to_list(length=limit)
 
-    # --- PERSISTENT QUEUE (TASK) FUNCTIONS ---
     async def add_task(self, user_id: int, file_msg_id: int, new_name: str, upload_type: str):
         task = Task(user_id=user_id, file_msg_id=file_msg_id, new_name=new_name, upload_type=upload_type)
         await task.insert()
