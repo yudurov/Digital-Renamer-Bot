@@ -156,14 +156,22 @@ async def rename_start(client, message):
         )
         await message.reply_text(text, reply_to_message_id=message.id, reply_markup=ForceReply(True))
 
+    # --- ENHANCED LIMIT CHECKING WITH LIFETIME IMMUNITY ---
     if client.premium and client.uploadlimit:
         await digital_botz.reset_uploadlimit_access(user_id)
+        
+        # Check if user has Lifetime Plan
+        prem_data = await digital_botz.get_user(user_id)
+        is_lifetime = prem_data.get("is_lifetime", False) if prem_data else False
+        
         user_data = await digital_botz.get_user_data(user_id)
         limit = user_data.get('uploadlimit', 0)
         used = user_data.get('used_limit', 0)
         remain = int(limit) - int(used)
         used_percentage = (int(used) / int(limit) * 100) if limit else 0
-        if remain < int(rkn_file.file_size):
+        
+        # Only block if they aren't Lifetime and their limit is exceeded
+        if not is_lifetime and remain < int(rkn_file.file_size):
             return await message.reply_text(
                 f"{used_percentage:.2f}% Of Daily Upload Limit {humanbytes(limit)}.\n\n"
                 f"📦 Media Size: {filesize}\n"
@@ -171,6 +179,7 @@ async def rename_start(client, message):
                 f"You have only **{humanbytes(remain)}** left.\nPlease, Buy Premium Plan.",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🪪 Uᴘɢʀᴀᴅᴇ", callback_data="plans")]])
             )
+    # -----------------------------------------------------
 
     if await digital_botz.has_premium_access(user_id) and client.premium:
         if not Config.STRING_SESSION:
@@ -280,12 +289,12 @@ async def download_worker(client, user_id):
 
             await rkn_processing.edit("`☄️Trying To Download....`")
             
+            # --- FIXED DOUBLE TRACKER BUG ---
             if client.premium and client.uploadlimit:
-                limit = user_data.get('uploadlimit', 0)
                 used = user_data.get('used_limit', 0)
-                await digital_botz.set_used_limit(user_id, media.file_size)
                 total_used = int(used) + int(media.file_size)
                 await digital_botz.set_used_limit(user_id, total_used)
+            # --------------------------------
             
             try:
                 dl_path = await client.download_media(
@@ -295,9 +304,12 @@ async def download_worker(client, user_id):
                     progress_args=(DOWNLOAD_TEXT, rkn_processing, time.time())
                 )
             except Exception as e:
+                # --- FIXED ROLLBACK MATH ---
                 if client.premium and client.uploadlimit:
-                    used_remove = int(used) - int(media.file_size)
-                    await digital_botz.set_used_limit(user_id, used_remove)
+                    curr_data = await digital_botz.get_user_data(user_id)
+                    curr_used = curr_data.get('used_limit', 0)
+                    await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
+                # ---------------------------
                 await digital_botz.delete_task(task_id)
                 await rkn_processing.edit(f"Download Error: {e}")
                 continue
@@ -335,8 +347,9 @@ async def download_worker(client, user_id):
                      )
                  except Exception as e:
                      if client.premium and client.uploadlimit:
-                         used_remove = int(used) - int(media.file_size)
-                         await digital_botz.set_used_limit(user_id, used_remove)
+                         curr_data = await digital_botz.get_user_data(user_id)
+                         curr_used = curr_data.get('used_limit', 0)
+                         await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
                      await digital_botz.delete_task(task_id)
                      await rkn_processing.edit(text=f"Yᴏᴜʀ Cᴀᴩᴛɪᴏɴ Eʀʀᴏʀ: ({e})")
                      continue
@@ -401,9 +414,12 @@ async def upload_worker(client, user_id):
                 await data['rkn_processing'].edit("🎈 Uploaded Successfully....")
                 
             except Exception as e:
+                # --- FIXED ROLLBACK MATH ---
                 if client.premium and client.uploadlimit:
-                    used_remove = int(data['used']) - int(data['file_size'])
-                    await digital_botz.set_used_limit(user_id, used_remove)
+                    curr_data = await digital_botz.get_user_data(user_id)
+                    curr_used = curr_data.get('used_limit', 0)
+                    await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(data['file_size'])))
+                # ---------------------------
                 await digital_botz.delete_task(data['task_id'])
                 await data['rkn_processing'].edit(f" Eʀʀᴏʀ {e}")
 
