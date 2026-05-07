@@ -47,61 +47,25 @@ DOWNLOAD_TEXT = "📥 Downloading file..."
 app = Client("4gb_FileRenameBot", api_id=Config.API_ID, api_hash=Config.API_HASH, session_string=Config.STRING_SESSION)
 
 # ==========================================
-# --- FLEET WORKER ROUTER (ROUND-ROBIN) ---
+# --- LEAST BUSY WORKER LOAD BALANCER ---
 # ==========================================
-worker_index = 0
-def get_next_worker(main_client):
-    """Cycles through available workers to perfectly balance traffic. Fallbacks to main bot."""
-    global worker_index
+worker_loads = {} # Tracks how many active tasks each worker has
+
+def get_least_busy_worker(main_client):
+    """Finds the worker currently handling the fewest files."""
     workers = getattr(Config, "WORKER_CLIENTS", [])
     if not workers:
         return main_client
-    worker = workers[worker_index % len(workers)]
-    worker_index += 1
-    return worker
+    
+    # Initialize tracking if not present
+    for w in workers:
+        if w not in worker_loads:
+            worker_loads[w] = 0
+            
+    # Return the worker with the minimum active tasks
+    least_busy = min(workers, key=lambda w: worker_loads.get(w, 0))
+    return least_busy
 # ==========================================
-
-# ==========================================
-# --- QUEUE MANAGER CLASS ---
-# ==========================================
-class QueueManager:
-    def __init__(self):
-        self.user_tasks = {}    
-        self.upload_queues = {} 
-        self.workers = {}       
-
-    def add_task(self, user_id, processing_msg, file_msg, new_name, upload_type, task_id):
-        if user_id not in self.user_tasks:
-            self.user_tasks[user_id] = []
-        self.user_tasks[user_id].append({
-            'processing_msg': processing_msg,
-            'file_msg': file_msg,
-            'new_name': new_name,
-            'upload_type': upload_type,
-            'task_id': task_id
-        })
-        return len(self.user_tasks[user_id])
-
-    def has_worker(self, user_id):
-        return user_id in self.workers
-
-    def init_upload_queue(self, user_id):
-        if user_id not in self.upload_queues:
-            self.upload_queues[user_id] = asyncio.Queue()
-        return self.upload_queues[user_id]
-
-    def register_workers(self, user_id, dl_task, ul_task):
-        self.workers[user_id] = {'dl': dl_task, 'ul': ul_task}
-
-    def cleanup(self, user_id):
-        if user_id in self.workers:
-            del self.workers[user_id]
-        if user_id in self.upload_queues:
-            del self.upload_queues[user_id]
-        if user_id in self.user_tasks:
-            del self.user_tasks[user_id]
-
-manager = QueueManager()
 
 # ==========================================
 # --- REBOOT RESUME FUNCTION ---
@@ -119,13 +83,14 @@ async def resume_all_tasks(client):
                     continue
                     
                 processing_msg = await client.send_message(task.user_id, "🔄 **Rᴇꜱᴜᴍɪɴɢ Iɴᴄᴏᴍᴩʟᴇᴛᴇ Tᴀꜱᴋ...**\n⏳ **Pʀᴏᴄᴇꜱꜱɪɴɢ...**")
-                manager.add_task(task.user_id, processing_msg, file_msg, task.new_name, task.upload_type, task.id)
                 
-                if not manager.has_worker(task.user_id):
-                    manager.init_upload_queue(task.user_id)
-                    dl_task = asyncio.create_task(download_worker(client, task.user_id))
-                    ul_task = asyncio.create_task(upload_worker(client, task.user_id))
-                    manager.register_workers(task.user_id, dl_task, ul_task)
+                # Assign to the least busy worker immediately
+                assigned_worker = get_least_busy_worker(client)
+                if assigned_worker != client:
+                    worker_loads[assigned_worker] = worker_loads.get(assigned_worker, 0) + 1
+                
+                # Start task in parallel
+                asyncio.create_task(process_single_file(client, assigned_worker, task.user_id, file_msg, task.new_name, task.upload_type, task.id, processing_msg))
                 count += 1
             except Exception as e:
                 print(f"Failed to resume task {task.id}: {e}")
@@ -174,6 +139,7 @@ async def rename_start(client, message):
     if client.premium and client.uploadlimit:
         await digital_botz.reset_uploadlimit_access(user_id)
         
+        # Check if user has Lifetime Plan
         prem_data = await digital_botz.get_user(user_id)
         is_lifetime = prem_data.get("is_lifetime", False) if prem_data else False
         
@@ -183,6 +149,7 @@ async def rename_start(client, message):
         remain = int(limit) - int(used)
         used_percentage = (int(used) / int(limit) * 100) if limit else 0
         
+        # Only block if they aren't Lifetime and their limit is exceeded
         if not is_lifetime and remain < int(rkn_file.file_size):
             return await message.reply_text(
                 f"{used_percentage:.2f}% Of Daily Upload Limit {humanbytes(limit)}.\n\n"
@@ -241,6 +208,7 @@ async def refunc(client, message):
             reply_markup=InlineKeyboardMarkup(button)
         )
     else:
+        # CRITICAL FIX: If it is not a ForceReply, pass it along!
         await message.continue_propagation()
 
 
@@ -252,227 +220,199 @@ async def doc(client, update):
     type = update.data.split("_")[1]
     file_msg = update.message.reply_to_message
     
-    rkn_processing = await update.message.edit("`⏳ Added to Queue...`")
+    rkn_processing = await update.message.edit("`⏳ Processing...`")
 
     # Add to DB for persistence
     task_id = await digital_botz.add_task(user_id, file_msg.id, new_filename_, type)
     
-    pos = manager.add_task(user_id, rkn_processing, file_msg, new_filename_, type, task_id)
-    if manager.has_worker(user_id):
-        await rkn_processing.edit(f"✅ **Added to Queue!**\nPosition: {pos}")
-        return
+    # Check for least busy worker immediately
+    assigned_worker = get_least_busy_worker(client)
+    if assigned_worker != client:
+        worker_loads[assigned_worker] = worker_loads.get(assigned_worker, 0) + 1
 
-    manager.init_upload_queue(user_id)
-    dl_task = asyncio.create_task(download_worker(client, user_id))
-    ul_task = asyncio.create_task(upload_worker(client, user_id))
-    manager.register_workers(user_id, dl_task, ul_task)
+    # Start download/upload in parallel without blocking!
+    asyncio.create_task(process_single_file(client, assigned_worker, user_id, file_msg, new_filename_, type, task_id, rkn_processing))
 
-async def download_worker(client, user_id):
+
+async def process_single_file(main_client, worker_client, user_id, file_msg, new_filename_, upload_type, task_id, rkn_processing):
+    """Handles the full flow concurrently, bypassing any queue managers"""
+    dl_path = None
+    file_path = None
+    metadata_path = None
+    ph_path = None
+    log_msg_down = None
+    
     try:
-        while user_id in manager.user_tasks and manager.user_tasks[user_id]:
-            item = manager.user_tasks[user_id].pop(0)
-            rkn_processing = item['processing_msg']
-            file_msg = item['file_msg']
-            new_filename_ = item['new_name']
-            upload_type = item['upload_type']
-            task_id = item['task_id']
-            
-            await digital_botz.update_task_status(task_id, "processing")
-            
-            if not os.path.isdir("Metadata"): os.mkdir("Metadata")
-            if not os.path.isdir("Renames"): os.mkdir("Renames")
-            
-            user_data = await digital_botz.get_user_data(user_id)
-            media = getattr(file_msg, file_msg.media.value)
+        await digital_botz.update_task_status(task_id, "processing")
+        
+        if not os.path.isdir("Metadata"): os.mkdir("Metadata")
+        if not os.path.isdir("Renames"): os.mkdir("Renames")
+        
+        user_data = await digital_botz.get_user_data(user_id)
+        media = getattr(file_msg, file_msg.media.value)
 
+        try:
+            prefix = await digital_botz.get_prefix(user_id)
+            suffix = await digital_botz.get_suffix(user_id)
+            new_filename = add_prefix_suffix(new_filename_, prefix, suffix)
+        except Exception as e:
+            await digital_botz.delete_task(task_id)
+            await rkn_processing.edit(f"⚠️ Prefix/Suffix Error \nError: {e}")
+            return
+
+        file_path = f"Renames/{new_filename}"
+        metadata_path = f"Metadata/{new_filename}"    
+
+        await rkn_processing.edit("`☄️Trying To Download....`")
+        
+        # --- Tracker Math (Safe Add) ---
+        if main_client.premium and main_client.uploadlimit:
+            used = user_data.get('used_limit', 0)
+            total_used = int(used) + int(media.file_size)
+            await digital_botz.set_used_limit(user_id, total_used)
+        
+        # --- Log Channel Bridge for Worker Download ---
+        if worker_client != main_client:
             try:
-                prefix = await digital_botz.get_prefix(user_id)
-                suffix = await digital_botz.get_suffix(user_id)
-                new_filename = add_prefix_suffix(new_filename_, prefix, suffix)
+                # Send copy to log channel so worker can see the file_id
+                log_msg_down = await file_msg.copy(Config.LOG_CHANNEL)
+                target_msg = await worker_client.get_messages(Config.LOG_CHANNEL, log_msg_down.id)
             except Exception as e:
-                await digital_botz.delete_task(task_id)
-                await rkn_processing.edit(f"⚠️ Prefix/Suffix Error \nError: {e}")
-                continue
-
-            file_path = f"Renames/{new_filename}"
-            metadata_path = f"Metadata/{new_filename}"    
-
-            await rkn_processing.edit("`☄️Trying To Download....`")
-            
-            # --- GET FLEET WORKER ---
-            worker_client = get_next_worker(client)
-            log_msg = None
-            
-            if worker_client != client:
-                try:
-                    # Forward to Log Channel so worker can access the file ID
-                    log_msg = await file_msg.copy(Config.LOG_CHANNEL)
-                    target_msg = await worker_client.get_messages(Config.LOG_CHANNEL, log_msg.id)
-                except Exception as e:
-                    await digital_botz.delete_task(task_id)
-                    await rkn_processing.edit(f"⚠️ **Fleet Error:** Main bot must be Admin in LOG_CHANNEL.\n{e}")
-                    continue
-            else:
-                target_msg = file_msg
-            # ------------------------
-            
-            # Tracker Math
-            if client.premium and client.uploadlimit:
-                used = user_data.get('used_limit', 0)
-                total_used = int(used) + int(media.file_size)
-                await digital_botz.set_used_limit(user_id, total_used)
-            
-            try:
-                dl_path = await worker_client.download_media(
-                    message=target_msg,
-                    file_name=file_path,
-                    progress=progress_for_pyrogram,
-                    progress_args=(DOWNLOAD_TEXT, rkn_processing, time.time())
-                )
-            except Exception as e:
-                # Rollback Tracker Math
-                if client.premium and client.uploadlimit:
+                # Rollback Math on Failure
+                if main_client.premium and main_client.uploadlimit:
                     curr_data = await digital_botz.get_user_data(user_id)
                     curr_used = curr_data.get('used_limit', 0)
                     await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
                     
                 await digital_botz.delete_task(task_id)
-                await rkn_processing.edit(f"Download Error: {e}")
-                continue
-            finally:
-                # Clean up the forwarded message in LOG_CHANNEL
-                if log_msg:
-                    try:
-                        await client.delete_messages(Config.LOG_CHANNEL, log_msg.id)
-                    except: pass
-
-            metadata_mode = await digital_botz.get_metadata_mode(user_id)
-            if (metadata_mode):        
-                metadata = await digital_botz.get_metadata_code(user_id)
-                if metadata:
-                    await rkn_processing.edit("I Fᴏᴜɴᴅ Yᴏᴜʀ Mᴇᴛᴀᴅᴀᴛᴀ\n\n__**Pʟᴇᴀsᴇ Wᴀɪᴛ...**__\n**Aᴅᴅɪɴɢ Mᴇᴛᴀᴅᴀᴛᴀ Tᴏ Fɪʟᴇ....**")            
-                    if change_metadata(dl_path, metadata_path, metadata):            
-                        await rkn_processing.edit("Metadata Added.....")
-                await rkn_processing.edit("**Metadata added to the file successfully ✅**\n\n**Tʀyɪɴɢ Tᴏ Uᴩʟᴏᴀᴅɪɴɢ....**")
-            else:
-                await rkn_processing.edit("`☄️Trying To Upload....`")
+                await rkn_processing.edit(f"⚠️ **Fleet Error:** Main bot must be Admin in LOG_CHANNEL.\n{e}")
+                return
+        else:
+            target_msg = file_msg
+        
+        # Execute Download
+        try:
+            dl_path = await worker_client.download_media(
+                message=target_msg,
+                file_name=file_path,
+                progress=progress_for_pyrogram,
+                progress_args=(DOWNLOAD_TEXT, rkn_processing, time.time())
+            )
+        except Exception as e:
+            # Rollback Math on Failure
+            if main_client.premium and main_client.uploadlimit:
+                curr_data = await digital_botz.get_user_data(user_id)
+                curr_used = curr_data.get('used_limit', 0)
+                await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
                 
-            duration = 0
+            await digital_botz.delete_task(task_id)
+            await rkn_processing.edit(f"Download Error: {e}")
+            return
+        finally:
+            if log_msg_down:
+                try: await main_client.delete_messages(Config.LOG_CHANNEL, log_msg_down.id)
+                except: pass
+
+        metadata_mode = await digital_botz.get_metadata_mode(user_id)
+        if (metadata_mode):        
+            metadata = await digital_botz.get_metadata_code(user_id)
+            if metadata:
+                await rkn_processing.edit("I Fᴏᴜɴᴅ Yᴏᴜʀ Mᴇᴛᴀᴅᴀᴛᴀ\n\n__**Pʟᴇᴀsᴇ Wᴀɪᴛ...**__\n**Aᴅᴅɪɴɢ Mᴇᴛᴀᴅᴀᴛᴀ Tᴏ Fɪʟᴇ....**")            
+                if change_metadata(dl_path, metadata_path, metadata):            
+                    await rkn_processing.edit("Metadata Added.....")
+            await rkn_processing.edit("**Metadata added to the file successfully ✅**\n\n**Tʀyɪɴɢ Tᴏ Uᴩʟᴏᴀᴅɪɴɢ....**")
+        else:
+            await rkn_processing.edit("`☄️Trying To Upload....`")
+            
+        duration = 0
+        try:
+            parser = createParser(file_path)
+            metadata_ext = extractMetadata(parser)
+            if metadata_ext and metadata_ext.has("duration"):
+                duration = metadata_ext.get('duration').seconds
+            if parser: parser.close()
+        except: pass
+            
+        c_caption = await digital_botz.get_caption(user_id)
+        c_thumb = await digital_botz.get_thumbnail(user_id)
+
+        if c_caption:
             try:
-                parser = createParser(file_path)
-                metadata = extractMetadata(parser)
-                if metadata and metadata.has("duration"):
-                    duration = metadata.get('duration').seconds
-                if parser: parser.close()
-            except: pass
-                
-            ph_path = None
-            c_caption = await digital_botz.get_caption(user_id)
-            c_thumb = await digital_botz.get_thumbnail(user_id)
-
-            if c_caption:
-                 try:
-                     caption = c_caption.format(
-                         filename=new_filename,
-                         filesize=humanbytes(media.file_size),
-                         duration=convert(duration)
-                     )
-                 except Exception as e:
-                     if client.premium and client.uploadlimit:
-                         curr_data = await digital_botz.get_user_data(user_id)
-                         curr_used = curr_data.get('used_limit', 0)
-                         await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
-                     await digital_botz.delete_task(task_id)
-                     await rkn_processing.edit(text=f"Yᴏᴜʀ Cᴀᴩᴛɪᴏɴ Eʀʀᴏʀ: ({e})")
-                     continue
-            else:
-                 caption = f"**{new_filename}**"
-         
-            if (media.thumbs or c_thumb):
-                 if c_thumb: ph_path = await client.download_media(c_thumb) 
-                 else: ph_path = await client.download_media(media.thumbs[0].file_id)
-                 Image.open(ph_path).convert("RGB").save(ph_path)
-                 img = Image.open(ph_path)
-                 img.resize((320, 320))
-                 img.save(ph_path, "JPEG")
-
-            upload_data = {
-                'file_path': file_path, 'ph_path': ph_path, 'metadata_path': metadata_path,
-                'caption': caption, 'duration': duration, 'rkn_processing': rkn_processing,
-                'upload_type': upload_type, 'file_size': media.file_size, 'user_id': user_id,
-                'metadata_mode': metadata_mode, 'task_id': task_id, 'dl_path': dl_path, 'used': user_data.get('used_limit', 0),
-                'worker_client': worker_client # Pass the worker down the chain
-            }
-            
-            await manager.upload_queues[user_id].put(upload_data)
-            await asyncio.sleep(1)
-            
-    finally:
-        if user_id in manager.upload_queues:
-            await manager.upload_queues[user_id].put(None)
-
-async def upload_worker(client, user_id):
-    try:
-        while True:
-            if user_id not in manager.upload_queues: break
-            data = await manager.upload_queues[user_id].get()
-            if data is None: break
-            
-            worker_client = data['worker_client']
-            
-            # --- UPLOADER SELECTION ROUTER ---
-            if data['file_size'] > 2000 * 1024 * 1024 and getattr(Config, 'STRING_SESSION', None):
-                uploader = app
-                is_main_bot = False
-            else:
-                uploader = worker_client
-                is_main_bot = (uploader == client)
-            # ---------------------------------
-            
-            file_to_upload = data['metadata_path'] if data['metadata_mode'] else data['file_path']
-            
-            try:
-                if not is_main_bot:
-                    # Upload to LOG_CHANNEL via Worker or User Account
-                    if data['upload_type'] == "document":
-                        filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, thumb=data['ph_path'], caption=data['caption'], progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, data['rkn_processing'], time.time()))
-                    elif data['upload_type'] == "video":
-                        filw = await uploader.send_video(Config.LOG_CHANNEL, video=file_to_upload, caption=data['caption'], thumb=data['ph_path'], duration=data['duration'], progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, data['rkn_processing'], time.time()))
-                    elif data['upload_type'] == "audio":
-                        filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, caption=data['caption'], thumb=data['ph_path'], duration=data['duration'], progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, data['rkn_processing'], time.time()))
-                    
-                    # Copy securely to user
-                    await asyncio.sleep(2)
-                    await client.copy_message(user_id, Config.LOG_CHANNEL, filw.id)
-                    
-                    # Clean up LOG_CHANNEL to save space
-                    try:
-                        await client.delete_messages(Config.LOG_CHANNEL, filw.id)
-                    except: pass
-                else:
-                    # Upload Directly via Main Bot
-                    if data['upload_type'] == "document":
-                        await client.send_document(user_id, document=file_to_upload, thumb=data['ph_path'], caption=data['caption'], progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, data['rkn_processing'], time.time()))
-                    elif data['upload_type'] == "video":
-                        await client.send_video(user_id, video=file_to_upload, caption=data['caption'], thumb=data['ph_path'], duration=data['duration'], progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, data['rkn_processing'], time.time()))
-                    elif data['upload_type'] == "audio":
-                        await client.send_audio(user_id, audio=file_to_upload, caption=data['caption'], thumb=data['ph_path'], duration=data['duration'], progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, data['rkn_processing'], time.time()))
-                
-                await digital_botz.delete_task(data['task_id'])
-                await data['rkn_processing'].edit("🎈 Uploaded Successfully....")
-                
+                caption = c_caption.format(
+                    filename=new_filename,
+                    filesize=humanbytes(media.file_size),
+                    duration=convert(duration)
+                )
             except Exception as e:
-                # Rollback Math on Failure
-                if client.premium and client.uploadlimit:
+                if main_client.premium and main_client.uploadlimit:
                     curr_data = await digital_botz.get_user_data(user_id)
                     curr_used = curr_data.get('used_limit', 0)
-                    await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(data['file_size'])))
-                    
-                await digital_botz.delete_task(data['task_id'])
-                await data['rkn_processing'].edit(f" Eʀʀᴏʀ {e}")
+                    await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
+                await digital_botz.delete_task(task_id)
+                await rkn_processing.edit(text=f"Yᴏᴜʀ Cᴀᴩᴛɪᴏɴ Eʀʀᴏʀ: ({e})")
+                return
+        else:
+            caption = f"**{new_filename}**"
+     
+        if (media.thumbs or c_thumb):
+            if c_thumb: ph_path = await main_client.download_media(c_thumb) 
+            else: ph_path = await main_client.download_media(media.thumbs[0].file_id)
+            Image.open(ph_path).convert("RGB").save(ph_path)
+            img = Image.open(ph_path)
+            img.resize((320, 320))
+            img.save(ph_path, "JPEG")
 
-            finally:
-                await remove_path(data['ph_path'], data['file_path'], data['dl_path'], data['metadata_path'])
+        # --- Uploader Setup ---
+        if media.file_size > 2000 * 1024 * 1024 and getattr(Config, 'STRING_SESSION', None):
+            uploader = app
+            is_main_bot = False
+        else:
+            uploader = worker_client
+            is_main_bot = (uploader == main_client)
             
+        file_to_upload = metadata_path if metadata_mode else file_path
+        
+        # Execute Upload
+        try:
+            if not is_main_bot:
+                # Upload to LOG_CHANNEL via Worker/App
+                if upload_type == "document":
+                    filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                elif upload_type == "video":
+                    filw = await uploader.send_video(Config.LOG_CHANNEL, video=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                elif upload_type == "audio":
+                    filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                
+                # Deliver to User safely
+                await asyncio.sleep(2)
+                await main_client.copy_message(user_id, Config.LOG_CHANNEL, filw.id)
+                
+                # Cleanup LOG_CHANNEL
+                try: await main_client.delete_messages(Config.LOG_CHANNEL, filw.id)
+                except: pass
+            else:
+                # Upload Directly via Main Bot
+                if upload_type == "document":
+                    await main_client.send_document(user_id, document=file_to_upload, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                elif upload_type == "video":
+                    await main_client.send_video(user_id, video=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                elif upload_type == "audio":
+                    await main_client.send_audio(user_id, audio=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+            
+            await digital_botz.delete_task(task_id)
+            await rkn_processing.edit("🎈 Uploaded Successfully....")
+            
+        except Exception as e:
+            if main_client.premium and main_client.uploadlimit:
+                curr_data = await digital_botz.get_user_data(user_id)
+                curr_used = curr_data.get('used_limit', 0)
+                await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
+            await digital_botz.delete_task(task_id)
+            await rkn_processing.edit(f" Eʀʀᴏʀ {e}")
+
     finally:
-        manager.cleanup(user_id)
+        # VERY IMPORTANT: Release the worker so it can take new files
+        if worker_client != main_client:
+            worker_loads[worker_client] = max(0, worker_loads.get(worker_client, 0) - 1)
+        # Cleanup files from VPS
+        await remove_path(ph_path, file_path, dl_path, metadata_path)
