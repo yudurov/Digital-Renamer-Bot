@@ -265,11 +265,10 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
 
         await rkn_processing.edit("`☄️Trying To Download....`")
         
-        # --- Tracker Math (Safe Add) ---
+        # --- FIXED TRACKER: Safe Atomic Add ---
         if main_client.premium and main_client.uploadlimit:
-            used = user_data.get('used_limit', 0)
-            total_used = int(used) + int(media.file_size)
-            await digital_botz.set_used_limit(user_id, total_used)
+            await digital_botz.increment_used_limit(user_id, media.file_size)
+        # --------------------------------------
         
         # --- Log Channel Bridge for Worker Download ---
         if worker_client != main_client:
@@ -280,9 +279,7 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             except Exception as e:
                 # Rollback Math on Failure
                 if main_client.premium and main_client.uploadlimit:
-                    curr_data = await digital_botz.get_user_data(user_id)
-                    curr_used = curr_data.get('used_limit', 0)
-                    await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
+                    await digital_botz.increment_used_limit(user_id, -media.file_size)
                     
                 await digital_botz.delete_task(task_id)
                 await rkn_processing.edit(f"⚠️ **Fleet Error:** Main bot must be Admin in LOG_CHANNEL.\n{e}")
@@ -301,9 +298,7 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
         except Exception as e:
             # Rollback Math on Failure
             if main_client.premium and main_client.uploadlimit:
-                curr_data = await digital_botz.get_user_data(user_id)
-                curr_used = curr_data.get('used_limit', 0)
-                await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
+                await digital_botz.increment_used_limit(user_id, -media.file_size)
                 
             await digital_botz.delete_task(task_id)
             await rkn_processing.edit(f"Download Error: {e}")
@@ -345,9 +340,7 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                 )
             except Exception as e:
                 if main_client.premium and main_client.uploadlimit:
-                    curr_data = await digital_botz.get_user_data(user_id)
-                    curr_used = curr_data.get('used_limit', 0)
-                    await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
+                    await digital_botz.increment_used_limit(user_id, -media.file_size)
                 await digital_botz.delete_task(task_id)
                 await rkn_processing.edit(text=f"Yᴏᴜʀ Cᴀᴩᴛɪᴏɴ Eʀʀᴏʀ: ({e})")
                 return
@@ -404,9 +397,7 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             
         except Exception as e:
             if main_client.premium and main_client.uploadlimit:
-                curr_data = await digital_botz.get_user_data(user_id)
-                curr_used = curr_data.get('used_limit', 0)
-                await digital_botz.set_used_limit(user_id, max(0, int(curr_used) - int(media.file_size)))
+                await digital_botz.increment_used_limit(user_id, -media.file_size)
             await digital_botz.delete_task(task_id)
             await rkn_processing.edit(f" Eʀʀᴏʀ {e}")
 
