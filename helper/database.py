@@ -11,7 +11,7 @@ Apache License 2.0
 Copyright (c) 2022 @Digital_Botz
 """
 
-import datetime, time
+import datetime, time, pytz
 from typing import Optional, Any
 from pymongo import AsyncMongoClient
 from pydantic import BaseModel, Field
@@ -198,18 +198,31 @@ class Database:
         user = await User.get(id)
         return user.metadata_code if user else None
 
+    # --- NEW: ATOMIC PARALLEL SAFE UPDATER ---
+    async def increment_used_limit(self, id: int, file_size: int):
+        """Atomically adds bytes so Worker Bots don't overwrite each other!"""
+        if file_size > 0:
+            await self.db["user"].update_one(
+                {"_id": id},
+                {"$inc": {"used_limit": file_size, "lifetime_used_bytes": file_size}}
+            )
+        else:
+            # Safe rollback for failed downloads
+            user = await User.get(id)
+            if user:
+                new_limit = max(0, user.used_limit + file_size)
+                user.used_limit = new_limit
+                await user.save()
+
     async def set_used_limit(self, id: int, used: int):
         user = await User.get(id)
         if user:
-            # --- LEADERBOARD LIFETIME TRACKER FIX ---
             delta = used - user.used_limit
             if delta > 0:
                 lifetime = getattr(user, "lifetime_used_bytes", 0)
-                # Self-healing safety check on upload
                 if lifetime < user.used_limit:
                     lifetime = user.used_limit
                 user.lifetime_used_bytes = lifetime + delta
-            # ----------------------------------------
             
             user.used_limit = used
             await user.save()
@@ -233,23 +246,30 @@ class Database:
             await user.save()
         
     async def reset_uploadlimit_access(self, user_id: int):
-        seconds = 1440 * 60
-        reset_date = datetime.datetime.now() + datetime.timedelta(seconds=seconds)
-        
+        """Resets the user's daily limit precisely at Midnight in Kenya"""
         user = await User.get(user_id)
         if user:
             expiry_time = user.daily
-            current_time = datetime.datetime.now()
+            current_utc = datetime.datetime.utcnow()
             
             needs_reset = (
                 expiry_time is None or
                 expiry_time == 0 or
                 not isinstance(expiry_time, datetime.datetime) or
-                current_time > expiry_time
+                current_utc > expiry_time
             )
             
             if needs_reset:
-                user.daily = reset_date
+                # Calculate exactly midnight EAT
+                tz = pytz.timezone("Africa/Nairobi")
+                now_kenya = datetime.datetime.now(tz)
+                tomorrow_kenya = now_kenya.date() + datetime.timedelta(days=1)
+                midnight_kenya = tz.localize(datetime.datetime.combine(tomorrow_kenya, datetime.time.min))
+                
+                # Convert back to UTC for safe MongoDB storage
+                reset_utc = midnight_kenya.astimezone(pytz.utc).replace(tzinfo=None)
+                
+                user.daily = reset_utc
                 user.used_limit = 0
                 await user.save()
                         
@@ -405,8 +425,6 @@ class Database:
     # ==========================================
     async def get_leaderboard(self, lb_type="lifetime", limit=20):
         if lb_type == "lifetime":
-            # SELF-HEALING MIGRATION: 
-            # If a user's daily limit is higher than lifetime (due to recent update), instantly sync them in DB!
             await self.db["user"].update_many(
                 {"$expr": {"$lt": ["$lifetime_used_bytes", "$used_limit"]}},
                 [{"$set": {"lifetime_used_bytes": "$used_limit"}}]
