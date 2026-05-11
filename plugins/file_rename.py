@@ -39,7 +39,7 @@ from config import Config
 
 # extra imports
 from asyncio import sleep
-import os, time, asyncio, re
+import os, time, asyncio, re, shutil
 
 UPLOAD_TEXT = "📤 Uploading file..."
 DOWNLOAD_TEXT = "📥 Downloading file..."
@@ -248,11 +248,12 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
     ph_path = None
     log_msg_down = None
     
+    # Establish dynamic, unique folder paths based on the DB task_id
+    task_renames_dir = f"Renames/{task_id}"
+    task_meta_dir = f"Metadata/{task_id}"
+    
     try:
         await digital_botz.update_task_status(task_id, "processing")
-        
-        if not os.path.isdir("Metadata"): os.mkdir("Metadata")
-        if not os.path.isdir("Renames"): os.mkdir("Renames")
         
         user_data = await digital_botz.get_user_data(user_id)
         media = getattr(file_msg, file_msg.media.value)
@@ -269,9 +270,12 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             await rkn_processing.edit(f"⚠️ Prefix/Suffix Error \nError: {e}")
             return
 
-        # UNIQUE PATH: Prepend task_id so concurrent identical filenames never collide on disk!
-        file_path = f"Renames/{task_id}_{new_filename}"
-        metadata_path = f"Metadata/{task_id}_{new_filename}"    
+        # UNIQUE FOLDER: Prevent disk collisions while keeping the filename pristine!
+        os.makedirs(task_renames_dir, exist_ok=True)
+        os.makedirs(task_meta_dir, exist_ok=True)
+
+        file_path = f"{task_renames_dir}/{new_filename}"
+        metadata_path = f"{task_meta_dir}/{new_filename}"    
 
         await rkn_processing.edit("`☄️Trying To Download....`")
         
@@ -427,5 +431,13 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
         # VERY IMPORTANT: Release the worker so it can take new files
         if worker_client != main_client:
             worker_loads[worker_client] = max(0, worker_loads.get(worker_client, 0) - 1)
+            
         # Cleanup files from VPS
         await remove_path(ph_path, file_path, dl_path, metadata_path)
+        
+        # Wipe the isolated task directories to keep VPS clean
+        try:
+            shutil.rmtree(task_renames_dir, ignore_errors=True)
+            shutil.rmtree(task_meta_dir, ignore_errors=True)
+        except:
+            pass
