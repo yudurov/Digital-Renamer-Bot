@@ -39,7 +39,7 @@ from config import Config
 
 # extra imports
 from asyncio import sleep
-import os, time, asyncio, re, shutil
+import os, time, asyncio, shutil
 
 UPLOAD_TEXT = "📤 Uploading file..."
 DOWNLOAD_TEXT = "📥 Downloading file..."
@@ -88,7 +88,7 @@ async def resume_all_tasks(client):
                     await task.delete()
                     continue
                     
-                processing_msg = await client.send_message(task.user_id, "🔄 **Rᴇꜱᴜᴍɪɴɢ Iɴᴄᴏᴍᴩʟᴇᴛᴇ Tᴀꜱᴋ...**\n⏳ **Pʀᴏᴄᴇꜱꜱɪɴɢ...**")
+                processing_msg = await client.send_message(task.user_id, "🔄 **Rᴇꜱᴜᴍɪɴɢ Iɴᴄᴏᴍᴩʟᴇᴛᴇ Tᴀꜱᴋ...**\n⏳ **Pʀᴏᴄꜱꜱɪɴɢ...**")
                 
                 # Assign to the least busy worker immediately
                 assigned_worker = get_least_busy_worker(client)
@@ -214,7 +214,6 @@ async def refunc(client, message):
             reply_markup=InlineKeyboardMarkup(button)
         )
     else:
-        # CRITICAL FIX: If it is not a ForceReply, pass it along!
         await message.continue_propagation()
 
 
@@ -263,14 +262,14 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             suffix = await digital_botz.get_suffix(user_id)
             new_filename = add_prefix_suffix(new_filename_, prefix, suffix)
             
-            # SANITIZE: Prevent directory traversal or invalid characters
-            new_filename = re.sub(r'[\\/*?:"<>|]', "-", str(new_filename))
+            # SANITIZE: Prevent directory traversal crashes, but perfectly preserve dots and spaces
+            new_filename = new_filename.replace("/", "-").replace("\\", "-")
         except Exception as e:
             await digital_botz.delete_task(task_id)
             await rkn_processing.edit(f"⚠️ Prefix/Suffix Error \nError: {e}")
             return
 
-        # UNIQUE FOLDER: Prevent disk collisions while keeping the filename pristine!
+        # UNIQUE FOLDER: Prevent identical file disk collisions, keep filename completely pristine!
         os.makedirs(task_renames_dir, exist_ok=True)
         os.makedirs(task_meta_dir, exist_ok=True)
 
@@ -383,13 +382,13 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
         try:
             async def perform_upload():
                 if not is_main_bot:
-                    # Upload to LOG_CHANNEL via Worker/App
+                    # Upload to LOG_CHANNEL via Worker/App with FORCED file_name
                     if upload_type == "document":
-                        filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, file_name=new_filename, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
                     elif upload_type == "video":
-                        filw = await uploader.send_video(Config.LOG_CHANNEL, video=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        filw = await uploader.send_video(Config.LOG_CHANNEL, video=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
                     elif upload_type == "audio":
-                        filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
                     
                     # Deliver to User safely
                     await asyncio.sleep(2)
@@ -399,13 +398,13 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                     try: await main_client.delete_messages(Config.LOG_CHANNEL, filw.id)
                     except: pass
                 else:
-                    # Upload Directly via Main Bot
+                    # Upload Directly via Main Bot with FORCED file_name
                     if upload_type == "document":
-                        await main_client.send_document(user_id, document=file_to_upload, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        await main_client.send_document(user_id, document=file_to_upload, file_name=new_filename, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
                     elif upload_type == "video":
-                        await main_client.send_video(user_id, video=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        await main_client.send_video(user_id, video=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
                     elif upload_type == "audio":
-                        await main_client.send_audio(user_id, audio=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        await main_client.send_audio(user_id, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
 
             if uploader == app:
                 # 2GB+ files MUST wait in line for the Premium Session to avoid FILE_PART_INVALID
