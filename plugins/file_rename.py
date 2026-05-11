@@ -39,12 +39,18 @@ from config import Config
 
 # extra imports
 from asyncio import sleep
-import os, time, asyncio
+import os, time, asyncio, re
 
 UPLOAD_TEXT = "📤 Uploading file..."
 DOWNLOAD_TEXT = "📥 Downloading file..."
 
 app = Client("4gb_FileRenameBot", api_id=Config.API_ID, api_hash=Config.API_HASH, session_string=Config.STRING_SESSION)
+
+# ==========================================
+# --- GLOBAL PREMIUM UPLOAD LOCK ---
+# Prevents FILE_PART_INVALID by making 2GB+ files take turns on the string session
+upload_lock = asyncio.Lock()
+# ==========================================
 
 # ==========================================
 # --- LEAST BUSY WORKER LOAD BALANCER ---
@@ -255,13 +261,17 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             prefix = await digital_botz.get_prefix(user_id)
             suffix = await digital_botz.get_suffix(user_id)
             new_filename = add_prefix_suffix(new_filename_, prefix, suffix)
+            
+            # SANITIZE: Prevent directory traversal or invalid characters
+            new_filename = re.sub(r'[\\/*?:"<>|]', "-", str(new_filename))
         except Exception as e:
             await digital_botz.delete_task(task_id)
             await rkn_processing.edit(f"⚠️ Prefix/Suffix Error \nError: {e}")
             return
 
-        file_path = f"Renames/{new_filename}"
-        metadata_path = f"Metadata/{new_filename}"    
+        # UNIQUE PATH: Prepend task_id so concurrent identical filenames never collide on disk!
+        file_path = f"Renames/{task_id}_{new_filename}"
+        metadata_path = f"Metadata/{task_id}_{new_filename}"    
 
         await rkn_processing.edit("`☄️Trying To Download....`")
         
@@ -367,30 +377,42 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
         
         # Execute Upload
         try:
-            if not is_main_bot:
-                # Upload to LOG_CHANNEL via Worker/App
-                if upload_type == "document":
-                    filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                elif upload_type == "video":
-                    filw = await uploader.send_video(Config.LOG_CHANNEL, video=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                elif upload_type == "audio":
-                    filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                
-                # Deliver to User safely
-                await asyncio.sleep(2)
-                await main_client.copy_message(user_id, Config.LOG_CHANNEL, filw.id)
-                
-                # Cleanup LOG_CHANNEL
-                try: await main_client.delete_messages(Config.LOG_CHANNEL, filw.id)
-                except: pass
+            async def perform_upload():
+                if not is_main_bot:
+                    # Upload to LOG_CHANNEL via Worker/App
+                    if upload_type == "document":
+                        filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                    elif upload_type == "video":
+                        filw = await uploader.send_video(Config.LOG_CHANNEL, video=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                    elif upload_type == "audio":
+                        filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                    
+                    # Deliver to User safely
+                    await asyncio.sleep(2)
+                    await main_client.copy_message(user_id, Config.LOG_CHANNEL, filw.id)
+                    
+                    # Cleanup LOG_CHANNEL
+                    try: await main_client.delete_messages(Config.LOG_CHANNEL, filw.id)
+                    except: pass
+                else:
+                    # Upload Directly via Main Bot
+                    if upload_type == "document":
+                        await main_client.send_document(user_id, document=file_to_upload, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                    elif upload_type == "video":
+                        await main_client.send_video(user_id, video=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                    elif upload_type == "audio":
+                        await main_client.send_audio(user_id, audio=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+
+            if uploader == app:
+                # 2GB+ files MUST wait in line for the Premium Session to avoid FILE_PART_INVALID
+                await rkn_processing.edit("📤 **Wᴀɪᴛɪɴɢ ꜰᴏʀ Pʀᴇᴍɪᴜᴍ Sᴇꜱꜱɪᴏɴ...**")
+                async with upload_lock:
+                    await rkn_processing.edit("📤 **Uᴩʟᴏᴀᴅɪɴɢ...**")
+                    await perform_upload()
             else:
-                # Upload Directly via Main Bot
-                if upload_type == "document":
-                    await main_client.send_document(user_id, document=file_to_upload, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                elif upload_type == "video":
-                    await main_client.send_video(user_id, video=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                elif upload_type == "audio":
-                    await main_client.send_audio(user_id, audio=file_to_upload, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                # < 2GB files upload instantly in parallel via Worker Fleet
+                await rkn_processing.edit("📤 **Uᴩʟᴏᴀᴅɪɴɢ...**")
+                await perform_upload()
             
             await digital_botz.delete_task(task_id)
             await rkn_processing.edit("🎈 Uploaded Successfully....")
