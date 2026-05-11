@@ -246,7 +246,7 @@ class Database:
             await user.save()
         
     async def reset_uploadlimit_access(self, user_id: int):
-        """Resets the user's daily limit precisely at Midnight in Kenya"""
+        """Fallback: Resets the user's daily limit precisely at Midnight in Kenya upon request"""
         user = await User.get(user_id)
         if user:
             expiry_time = user.daily
@@ -260,18 +260,37 @@ class Database:
             )
             
             if needs_reset:
-                # Calculate exactly midnight EAT
                 tz = pytz.timezone("Africa/Nairobi")
                 now_kenya = datetime.datetime.now(tz)
                 tomorrow_kenya = now_kenya.date() + datetime.timedelta(days=1)
                 midnight_kenya = tz.localize(datetime.datetime.combine(tomorrow_kenya, datetime.time.min))
                 
-                # Convert back to UTC for safe MongoDB storage
                 reset_utc = midnight_kenya.astimezone(pytz.utc).replace(tzinfo=None)
                 
                 user.daily = reset_utc
                 user.used_limit = 0
                 await user.save()
+
+    # ==========================================
+    # --- NEW: GLOBAL MIDNIGHT RESETTER ---
+    # ==========================================
+    async def global_daily_reset(self):
+        """Wipes the used_limit for ALL users instantly at midnight."""
+        try:
+            tz = pytz.timezone("Africa/Nairobi")
+            now_kenya = datetime.datetime.now(tz)
+            tomorrow_kenya = now_kenya.date() + datetime.timedelta(days=1)
+            midnight_kenya = tz.localize(datetime.datetime.combine(tomorrow_kenya, datetime.time.min))
+            reset_utc = midnight_kenya.astimezone(pytz.utc).replace(tzinfo=None)
+
+            # Instant wipe using MongoDB atomic updates
+            await self.db["user"].update_many(
+                {}, 
+                {"$set": {"used_limit": 0, "daily": reset_utc}}
+            )
+            print("✅ Successfully wiped daily limits for all users.")
+        except Exception as e:
+            print(f"Error during global daily reset: {e}")
                         
     async def get_user_data(self, id: int) -> dict:
         user = await User.get(id)
