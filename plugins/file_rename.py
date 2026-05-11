@@ -87,9 +87,23 @@ async def resume_all_tasks(client):
                 if not file_msg or file_msg.empty:
                     await task.delete()
                     continue
+
+                # --- 1. THE ASSASSIN: Silently delete the old frozen progress bar! ---
+                if getattr(task, "processing_msg_id", 0) != 0:
+                    try:
+                        await client.delete_messages(task.user_id, task.processing_msg_id)
+                    except:
+                        pass
+                # -------------------------------------------------------------------
                     
-                processing_msg = await client.send_message(task.user_id, "🔄 **Rᴇꜱᴜᴍɪɴɢ Iɴᴄᴏᴍᴩʟᴇᴛᴇ Tᴀꜱᴋ...**\n⏳ **Pʀᴏᴄꜱꜱɪɴɢ...**")
+                # Generate the new "Resuming" message which will naturally morph into the new progress bar
+                processing_msg = await client.send_message(task.user_id, "🔄 **Rᴇꜱᴜᴍɪɴɢ Iɴᴄᴏᴍᴩʟᴇᴛᴇ Tᴀꜱᴋ...**\n⏳ **Pʀᴏᴄᴇꜱꜱɪɴɢ...**")
                 
+                # --- 2. UPDATE DB: Save the new progress bar ID just in case it crashes again! ---
+                task.processing_msg_id = processing_msg.id
+                await task.save()
+                # ---------------------------------------------------------------------------------
+
                 # Assign to the least busy worker immediately
                 assigned_worker = get_least_busy_worker(client)
                 if assigned_worker != client:
@@ -219,6 +233,10 @@ async def refunc(client, message):
 
 @Client.on_callback_query(filters.regex("upload"))
 async def doc(client, update):
+    # Fix: Instantly answer the callback so the user's telegram client doesn't freeze the buttons!
+    try: await update.answer("Processing...", show_alert=False)
+    except: pass
+
     user_id = int(update.message.chat.id) 
     new_name = update.message.text
     new_filename_ = new_name.split(":-")[1].strip().replace("`","")
@@ -227,8 +245,8 @@ async def doc(client, update):
     
     rkn_processing = await update.message.edit("`⏳ Processing...`")
 
-    # Add to DB for persistence
-    task_id = await digital_botz.add_task(user_id, file_msg.id, new_filename_, type)
+    # Add to DB for persistence WITH the progress bar tracking ID!
+    task_id = await digital_botz.add_task(user_id, file_msg.id, new_filename_, type, rkn_processing.id)
     
     # Check for least busy worker immediately
     assigned_worker = get_least_busy_worker(client)
@@ -240,7 +258,6 @@ async def doc(client, update):
 
 
 async def process_single_file(main_client, worker_client, user_id, file_msg, new_filename_, upload_type, task_id, rkn_processing):
-    """Handles the full flow concurrently, bypassing any queue managers"""
     dl_path = None
     file_path = None
     metadata_path = None
@@ -278,29 +295,22 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
 
         await rkn_processing.edit("`☄️Trying To Download....`")
         
-        # --- FIXED TRACKER: Safe Atomic Add ---
         if main_client.premium and main_client.uploadlimit:
             await digital_botz.increment_used_limit(user_id, media.file_size)
-        # --------------------------------------
         
-        # --- Log Channel Bridge for Worker Download ---
         if worker_client != main_client:
             try:
-                # Send copy to log channel so worker can see the file_id
                 log_msg_down = await file_msg.copy(Config.LOG_CHANNEL)
                 target_msg = await worker_client.get_messages(Config.LOG_CHANNEL, log_msg_down.id)
             except Exception as e:
-                # Rollback Math on Failure
                 if main_client.premium and main_client.uploadlimit:
                     await digital_botz.increment_used_limit(user_id, -media.file_size)
-                    
                 await digital_botz.delete_task(task_id)
                 await rkn_processing.edit(f"⚠️ **Fleet Error:** Main bot must be Admin in LOG_CHANNEL.\n{e}")
                 return
         else:
             target_msg = file_msg
         
-        # Execute Download
         try:
             dl_path = await worker_client.download_media(
                 message=target_msg,
@@ -309,10 +319,8 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                 progress_args=(DOWNLOAD_TEXT, rkn_processing, time.time())
             )
         except Exception as e:
-            # Rollback Math on Failure
             if main_client.premium and main_client.uploadlimit:
                 await digital_botz.increment_used_limit(user_id, -media.file_size)
-                
             await digital_botz.delete_task(task_id)
             await rkn_processing.edit(f"Download Error: {e}")
             return
@@ -368,7 +376,6 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             img.resize((320, 320))
             img.save(ph_path, "JPEG")
 
-        # --- Uploader Setup ---
         if media.file_size > 2000 * 1024 * 1024 and getattr(Config, 'STRING_SESSION', None):
             uploader = app
             is_main_bot = False
@@ -378,11 +385,9 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             
         file_to_upload = metadata_path if metadata_mode else file_path
         
-        # Execute Upload
         try:
             async def perform_upload():
                 if not is_main_bot:
-                    # Upload to LOG_CHANNEL via Worker/App with FORCED file_name
                     if upload_type == "document":
                         filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, file_name=new_filename, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
                     elif upload_type == "video":
@@ -390,15 +395,11 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                     elif upload_type == "audio":
                         filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
                     
-                    # Deliver to User safely
                     await asyncio.sleep(2)
                     await main_client.copy_message(user_id, Config.LOG_CHANNEL, filw.id)
-                    
-                    # Cleanup LOG_CHANNEL
                     try: await main_client.delete_messages(Config.LOG_CHANNEL, filw.id)
                     except: pass
                 else:
-                    # Upload Directly via Main Bot with FORCED file_name
                     if upload_type == "document":
                         await main_client.send_document(user_id, document=file_to_upload, file_name=new_filename, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
                     elif upload_type == "video":
@@ -407,13 +408,11 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                         await main_client.send_audio(user_id, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
 
             if uploader == app:
-                # 2GB+ files MUST wait in line for the Premium Session to avoid FILE_PART_INVALID
                 await rkn_processing.edit("📤 **Wᴀɪᴛɪɴɢ ꜰᴏʀ Pʀᴇᴍɪᴜᴍ Sᴇꜱꜱɪᴏɴ...**")
                 async with upload_lock:
                     await rkn_processing.edit("📤 **Uᴩʟᴏᴀᴅɪɴɢ...**")
                     await perform_upload()
             else:
-                # < 2GB files upload instantly in parallel via Worker Fleet
                 await rkn_processing.edit("📤 **Uᴩʟᴏᴀᴅɪɴɢ...**")
                 await perform_upload()
             
@@ -427,14 +426,11 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             await rkn_processing.edit(f" Eʀʀᴏʀ {e}")
 
     finally:
-        # VERY IMPORTANT: Release the worker so it can take new files
         if worker_client != main_client:
             worker_loads[worker_client] = max(0, worker_loads.get(worker_client, 0) - 1)
             
-        # Cleanup files from VPS
         await remove_path(ph_path, file_path, dl_path, metadata_path)
         
-        # Wipe the isolated task directories to keep VPS clean
         try:
             shutil.rmtree(task_renames_dir, ignore_errors=True)
             shutil.rmtree(task_meta_dir, ignore_errors=True)
