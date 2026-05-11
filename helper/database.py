@@ -76,6 +76,7 @@ class Task(Document):
     file_msg_id: int
     new_name: str
     upload_type: str
+    processing_msg_id: int = 0 # <--- NEW: Tracks the frozen progress bar message ID!
     status: str = "pending"
     created_at: float = Field(default_factory=time.time)
 
@@ -198,16 +199,14 @@ class Database:
         user = await User.get(id)
         return user.metadata_code if user else None
 
-    # --- NEW: ATOMIC PARALLEL SAFE UPDATER ---
+    # --- ATOMIC PARALLEL SAFE UPDATER ---
     async def increment_used_limit(self, id: int, file_size: int):
-        """Atomically adds bytes so Worker Bots don't overwrite each other!"""
         if file_size > 0:
             await self.db["user"].update_one(
                 {"_id": id},
                 {"$inc": {"used_limit": file_size, "lifetime_used_bytes": file_size}}
             )
         else:
-            # Safe rollback for failed downloads
             user = await User.get(id)
             if user:
                 new_limit = max(0, user.used_limit + file_size)
@@ -246,7 +245,6 @@ class Database:
             await user.save()
         
     async def reset_uploadlimit_access(self, user_id: int):
-        """Fallback: Resets the user's daily limit precisely at Midnight in Kenya upon request"""
         user = await User.get(user_id)
         if user:
             expiry_time = user.daily
@@ -272,10 +270,9 @@ class Database:
                 await user.save()
 
     # ==========================================
-    # --- NEW: GLOBAL MIDNIGHT RESETTER ---
+    # --- GLOBAL MIDNIGHT RESETTER ---
     # ==========================================
     async def global_daily_reset(self):
-        """Wipes the used_limit for ALL users instantly at midnight."""
         try:
             tz = pytz.timezone("Africa/Nairobi")
             now_kenya = datetime.datetime.now(tz)
@@ -283,7 +280,6 @@ class Database:
             midnight_kenya = tz.localize(datetime.datetime.combine(tomorrow_kenya, datetime.time.min))
             reset_utc = midnight_kenya.astimezone(pytz.utc).replace(tzinfo=None)
 
-            # Instant wipe using MongoDB atomic updates
             await self.db["user"].update_many(
                 {}, 
                 {"$set": {"used_limit": 0, "daily": reset_utc}}
@@ -454,8 +450,9 @@ class Database:
         
         return await cursor.to_list(length=limit)
 
-    async def add_task(self, user_id: int, file_msg_id: int, new_name: str, upload_type: str):
-        task = Task(user_id=user_id, file_msg_id=file_msg_id, new_name=new_name, upload_type=upload_type)
+    # --- UPDATED: TAKES PROGRESS BAR MSG ID ---
+    async def add_task(self, user_id: int, file_msg_id: int, new_name: str, upload_type: str, processing_msg_id: int = 0):
+        task = Task(user_id=user_id, file_msg_id=file_msg_id, new_name=new_name, upload_type=upload_type, processing_msg_id=processing_msg_id)
         await task.insert()
         return task.id
 
