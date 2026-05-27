@@ -14,10 +14,9 @@ Copyright (c) 2022 @Digital_Botz
 import random, asyncio, datetime, pytz, time, psutil, shutil
 
 # pyrogram imports
-from pyrogram import Client, filters
+from pyrogram import Client, filters, ContinuePropagation
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ForceReply, CallbackQuery
 from pyrogram.enums import ChatAction
-from pyrogram.errors import ContinuePropagation
 
 # bots imports
 from helper.database import digital_botz
