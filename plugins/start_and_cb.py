@@ -17,6 +17,7 @@ import random, asyncio, datetime, pytz, time, psutil, shutil
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ForceReply, CallbackQuery
 from pyrogram.enums import ChatAction
+from pyrogram.errors import ContinuePropagation
 
 # bots imports
 from helper.database import digital_botz
@@ -396,6 +397,9 @@ async def cb_handler(client, query: CallbackQuery):
                 InlineKeyboardButton("◀️ Bᴀᴄᴋ", callback_data="start")
             ]])
     )
+
+    elif data.startswith("upload"):
+        raise ContinuePropagation
 
     elif data == "close":
         try:
