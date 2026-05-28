@@ -1,5 +1,5 @@
-pyrofork>=2.3.69
-TgCrypto-pyrofork>=1.2.8
+kurigram
+TgCrypto
 pymongo>=4.16.0
 beanie>=2.1.0
 pydantic>=2.12.5
