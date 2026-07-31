@@ -176,7 +176,7 @@ async def rename_start(client, message):
                 f"📦 Media Size: {filesize}\n"
                 f"📊 Your Used Daily Limit: {humanbytes(used)}\n\n"
                 f"You have only **{humanbytes(remain)}** left.\nPlease, Buy Premium Plan.",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🪪 Uᴘɢʀᴀᴅᴇ", callback_data="plans")]])
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🪪 UᴘɢʀᴀᴅE", callback_data="plans")]])
             )
 
     if await digital_botz.has_premium_access(user_id) and client.premium:
@@ -283,7 +283,8 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             new_filename = new_filename.replace("/", "-").replace("\\", "-")
         except Exception as e:
             await digital_botz.delete_task(task_id)
-            await rkn_processing.edit(f"⚠️ Prefix/Suffix Error \nError: {e}")
+            try: await rkn_processing.edit(f"⚠️ Prefix/Suffix Error \nError: {e}")
+            except: pass
             return
 
         # UNIQUE FOLDER: Prevent identical file disk collisions, keep filename completely pristine!
@@ -293,7 +294,8 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
         file_path = f"{task_renames_dir}/{new_filename}"
         metadata_path = f"{task_meta_dir}/{new_filename}"    
 
-        await rkn_processing.edit("`☄️Trying To Download....`")
+        try: await rkn_processing.edit("`☄️Trying To Download....`")
+        except: pass
         
         if main_client.premium and main_client.uploadlimit:
             await digital_botz.increment_used_limit(user_id, media.file_size)
@@ -306,7 +308,8 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                 if main_client.premium and main_client.uploadlimit:
                     await digital_botz.increment_used_limit(user_id, -media.file_size)
                 await digital_botz.delete_task(task_id)
-                await rkn_processing.edit(f"⚠️ **Fleet Error:** Main bot must be Admin in LOG_CHANNEL.\n{e}")
+                try: await rkn_processing.edit(f"⚠️ **Fleet Error:** Main bot must be Admin in LOG_CHANNEL.\n{e}")
+                except: pass
                 return
         else:
             target_msg = file_msg
@@ -322,7 +325,8 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             if main_client.premium and main_client.uploadlimit:
                 await digital_botz.increment_used_limit(user_id, -media.file_size)
             await digital_botz.delete_task(task_id)
-            await rkn_processing.edit(f"Download Error: {e}")
+            try: await rkn_processing.edit(f"Download Error: {e}")
+            except: pass
             return
         finally:
             if log_msg_down:
@@ -333,12 +337,16 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
         if (metadata_mode):        
             metadata = await digital_botz.get_metadata_code(user_id)
             if metadata:
-                await rkn_processing.edit("I Fᴏᴜɴᴅ Yᴏᴜʀ Mᴇᴛᴀᴅᴀᴛᴀ\n\n__**Pʟᴇᴀsᴇ Wᴀɪᴛ...**__\n**Aᴅᴅɪɴɢ Mᴇᴛᴀᴅᴀᴛᴀ Tᴏ Fɪʟᴇ....**")            
+                try: await rkn_processing.edit("I Fᴏᴜɴᴅ Yᴏᴜʀ Mᴇᴛᴀᴅᴀᴛᴀ\n\n__**Pʟᴇᴀsᴇ Wᴀɪᴛ...**__\n**Aᴅᴅɪɴɢ Mᴇᴛᴀᴅᴀᴛᴀ Tᴏ Fɪʟᴇ....**")            
+                except: pass
                 if change_metadata(dl_path, metadata_path, metadata):            
-                    await rkn_processing.edit("Metadata Added.....")
-            await rkn_processing.edit("**Metadata added to the file successfully ✅**\n\n**Tʀyɪɴɢ Tᴏ Uᴩʟᴏᴀᴅɪɴɢ....**")
+                    try: await rkn_processing.edit("Metadata Added.....")
+                    except: pass
+            try: await rkn_processing.edit("**Metadata added to the file successfully ✅**\n\n**Tʀyɪɴɢ Tᴏ Uᴩʟᴏᴀᴅɪɴɢ....**")
+            except: pass
         else:
-            await rkn_processing.edit("`☄️Trying To Upload....`")
+            try: await rkn_processing.edit("`☄️Trying To Upload....`")
+            except: pass
             
         duration = 0
         try:
@@ -363,7 +371,8 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                 if main_client.premium and main_client.uploadlimit:
                     await digital_botz.increment_used_limit(user_id, -media.file_size)
                 await digital_botz.delete_task(task_id)
-                await rkn_processing.edit(text=f"Yᴏᴜʀ Cᴀᴩᴛɪᴏɴ Eʀʀᴏʀ: ({e})")
+                try: await rkn_processing.edit(text=f"Yᴏᴜʀ Cᴀᴩᴛɪᴏɴ Eʀʀᴏʀ: ({e})")
+                except: pass
                 return
         else:
             caption = f"**{new_filename}**"
@@ -408,22 +417,37 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                         await main_client.send_audio(user_id, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
 
             if uploader == app:
-                await rkn_processing.edit("📤 **Wᴀɪᴛɪɴɢ ꜰᴏʀ Pʀᴇᴍɪᴜᴍ Sᴇꜱꜱɪᴏɴ...**")
+                try: await rkn_processing.edit("📤 **Wᴀɪᴛɪɴɢ ꜰᴏʀ Pʀᴇᴍɪᴜᴍ Sᴇꜱꜱɪᴏɴ...**")
+                except: pass
                 async with upload_lock:
-                    await rkn_processing.edit("📤 **Uᴩʟᴏᴀᴅɪɴɢ...**")
+                    try: await rkn_processing.edit("📤 **Uᴩʟᴏᴀᴅɪɴɢ...**")
+                    except: pass
                     await perform_upload()
             else:
-                await rkn_processing.edit("📤 **Uᴩʟᴏᴀᴅɪɴɢ...**")
+                try: await rkn_processing.edit("📤 **Uᴩʟᴏᴀᴅɪɴɢ...**")
+                except: pass
                 await perform_upload()
             
             await digital_botz.delete_task(task_id)
-            await rkn_processing.edit("🎈 Uploaded Successfully....")
+            try: await rkn_processing.edit("🎈 Uploaded Successfully....")
+            except: pass
             
+        except FloodWait as e:
+            if main_client.premium and main_client.uploadlimit:
+                await digital_botz.increment_used_limit(user_id, -media.file_size)
+            await digital_botz.delete_task(task_id)
+            try:
+                await rkn_processing.edit(f"⚠️ **Telegram Rate Limit:** Waiting {e.value} seconds...")
+            except:
+                pass
         except Exception as e:
             if main_client.premium and main_client.uploadlimit:
                 await digital_botz.increment_used_limit(user_id, -media.file_size)
             await digital_botz.delete_task(task_id)
-            await rkn_processing.edit(f" Eʀʀᴏʀ {e}")
+            try:
+                await rkn_processing.edit(f" Eʀʀᴏʀ {e}")
+            except:
+                pass
 
     finally:
         if worker_client != main_client:
