@@ -47,7 +47,7 @@ class User(Document):
     uploadlimit: int = Config.FREE_UPLOAD_LIMIT
     daily: Any = None
     metadata_mode: bool = False
-    metadata_code: str = "--change-title @OtherBs\n--change-video-title @OtherBs\n--change-audio-title @OtherBs\n--change-subtitle-title @OtherBs\n--change-author @OtherBs"
+    metadata_code: str = "--change-title @OtherBs --change-video-title @OtherBs --change-audio-title @OtherBs --change-subtitle-title @OtherBs --change-author @OtherBs"
     ban_status: BanStatus = Field(default_factory=BanStatus)
 
     class Settings:
