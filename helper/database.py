@@ -47,6 +47,7 @@ class User(Document):
     uploadlimit: int = Config.FREE_UPLOAD_LIMIT
     daily: Any = None
     metadata_mode: bool = False
+    # FIXED: Replaced \n with spaces for FFmpeg compatibility
     metadata_code: str = "--change-title @OtherBs --change-video-title @OtherBs --change-audio-title @OtherBs --change-subtitle-title @OtherBs --change-author @OtherBs"
     ban_status: BanStatus = Field(default_factory=BanStatus)
 
@@ -197,7 +198,8 @@ class Database:
 
     async def get_metadata_code(self, id: int):
         user = await User.get(id)
-        return user.metadata_code if user else None
+        # FIXED: Added the default string fallback here instead of returning None
+        return user.metadata_code if user else "--change-title @OtherBs --change-video-title @OtherBs --change-audio-title @OtherBs --change-subtitle-title @OtherBs --change-author @OtherBs"
 
     # --- ATOMIC PARALLEL SAFE UPDATER ---
     async def increment_used_limit(self, id: int, file_size: int):
