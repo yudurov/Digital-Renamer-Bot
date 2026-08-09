@@ -43,7 +43,7 @@ class Config(object):
     STRING_SESSION = os.environ.get("STRING_SESSION", "rfl")
     
     # database config
-    DB_NAME = os.environ.get("DB_NAME","rfl")     
+    DB_NAME = os.environ.get("DB_NAME","pyro")     
     DB_URL = os.environ.get("DB_URL","rdl")
  
     # other configs
