@@ -105,6 +105,7 @@ screen -S renn -X quit
 ## Rᴇǫᴜɪʀᴇᴅ Cᴏɴғɪɢs
 
 * `BOT_TOKEN`  - Get Bot Token From @BotFather
+* `WORKER_TOKENS` - Get Workers Bot Tokens From @BotFather
 * `API_ID` - From my.telegram.org
 * `API_HASH` - From my.telegram.org
 * `ADMIN` - AUTH Or Bot Controllers Id's Multiple Id Use Space To Split 
