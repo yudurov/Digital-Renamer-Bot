@@ -53,6 +53,12 @@ upload_lock = asyncio.Lock()
 # ==========================================
 
 # ==========================================
+# --- ACTIVE TASKS TRACKER (FOR CANCELLATION) ---
+# ==========================================
+active_tasks = {}
+# ==========================================
+
+# ==========================================
 # --- LEAST BUSY WORKER LOAD BALANCER ---
 # ==========================================
 worker_loads = {} # Tracks how many active tasks each worker has
@@ -109,8 +115,9 @@ async def resume_all_tasks(client):
                 if assigned_worker != client:
                     worker_loads[assigned_worker] = worker_loads.get(assigned_worker, 0) + 1
                 
-                # Start task in parallel
-                asyncio.create_task(process_single_file(client, assigned_worker, task.user_id, file_msg, task.new_name, task.upload_type, task.id, processing_msg))
+                # Start task in parallel and track it for cancellation
+                task_obj = asyncio.create_task(process_single_file(client, assigned_worker, task.user_id, file_msg, task.new_name, task.upload_type, task.id, processing_msg))
+                active_tasks[task.id] = task_obj
                 count += 1
             except Exception as e:
                 print(f"Failed to resume task {task.id}: {e}")
@@ -253,8 +260,9 @@ async def doc(client, update):
     if assigned_worker != client:
         worker_loads[assigned_worker] = worker_loads.get(assigned_worker, 0) + 1
 
-    # Start download/upload in parallel without blocking!
-    asyncio.create_task(process_single_file(client, assigned_worker, user_id, file_msg, new_filename_, type, task_id, rkn_processing))
+    # Start download/upload in parallel without blocking and track it!
+    task_obj = asyncio.create_task(process_single_file(client, assigned_worker, user_id, file_msg, new_filename_, type, task_id, rkn_processing))
+    active_tasks[task_id] = task_obj
 
 
 async def process_single_file(main_client, worker_client, user_id, file_msg, new_filename_, upload_type, task_id, rkn_processing):
@@ -502,7 +510,21 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             except:
                 pass
 
+    except asyncio.CancelledError:
+        print(f"Task {task_id} was successfully cancelled via active_tasks.")
+        if main_client.premium and main_client.uploadlimit:
+            await digital_botz.increment_used_limit(user_id, -media.file_size)
+        await digital_botz.delete_task(task_id)
+        try:
+            await rkn_processing.edit("❌ **Tᴀꜱᴋ Cᴀɴᴄᴇʟʟᴇᴅ Sᴜᴄᴄᴇꜱꜱꜰᴜʟʟy!**")
+        except:
+            pass
+
     finally:
+        # Erase task from memory once it finishes or gets cancelled
+        if task_id in active_tasks:
+            del active_tasks[task_id]
+            
         if worker_client != main_client:
             worker_loads[worker_client] = max(0, worker_loads.get(worker_client, 0) - 1)
             
