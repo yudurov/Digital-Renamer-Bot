@@ -395,12 +395,49 @@ async def cb_handler(client, query: CallbackQuery):
                 InlineKeyboardButton("🔒 Cʟᴏꜱᴇ", callback_data="close"),
                 InlineKeyboardButton("◀️ Bᴀᴄᴋ", callback_data="start")
             ]])
-    )
+        )
+
+    # ==========================================
+    # --- CANCEL TASK INTERCEPTOR ---
+    # ==========================================
+    elif data.startswith("cancel"):
+        try:
+            from plugins.file_rename import active_tasks
+            from helper.database import Task
+            
+            task = await Task.find_one(Task.processing_msg_id == query.message.id)
+            if task:
+                task_str_id = str(task.id)
+                if task_str_id in active_tasks:
+                    active_tasks[task_str_id].cancel()
+                    try: await query.answer("🛑 Task cancelled!", show_alert=True)
+                    except: pass
+                else:
+                    try: await query.answer("⚠️ Task not found or already completed.", show_alert=True)
+                    except: pass
+                
+        except Exception as e:
+            print(f"Cancel Error: {e}")
+    # ==========================================
 
     elif data.startswith("upload"):
         raise ContinuePropagation
 
     elif data == "close":
+        # --- THE GHOST KILLER: Check if this "close" button belongs to a progress bar! ---
+        try:
+            from plugins.file_rename import active_tasks
+            from helper.database import Task
+            task = await Task.find_one(Task.processing_msg_id == query.message.id)
+            if task:
+                task_str_id = str(task.id)
+                if task_str_id in active_tasks:
+                    active_tasks[task_str_id].cancel()
+                await digital_botz.delete_task(task.id)
+        except Exception as e:
+            print(f"Ghost killer error: {e}")
+        # --------------------------------------------------------------------------------
+            
         try:
             await query.message.delete()
             await query.message.reply_to_message.delete()
