@@ -313,6 +313,12 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
                 return
         else:
             target_msg = file_msg
+            
+        # --- CANCELLATION CHECK 1: Before Download ---
+        check_task = await Task.get(task_id)
+        if not check_task:
+            print(f"Task {task_id} cancelled before download.")
+            return
         
         try:
             dl_path = await worker_client.download_media(
@@ -403,6 +409,12 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             is_main_bot = (uploader == main_client)
             
         file_to_upload = metadata_path if metadata_mode else file_path
+        
+        # --- CANCELLATION CHECK 2: Before Upload ---
+        check_task = await Task.get(task_id)
+        if not check_task:
+            print(f"Task {task_id} cancelled before upload.")
+            return
         
         try:
             async def perform_upload():
