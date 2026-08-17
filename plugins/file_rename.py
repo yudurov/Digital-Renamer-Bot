@@ -330,8 +330,18 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
             return
         finally:
             if log_msg_down:
-                try: await main_client.delete_messages(Config.LOG_CHANNEL, log_msg_down.id)
-                except: pass
+                try: 
+                    await main_client.delete_messages(Config.LOG_CHANNEL, log_msg_down.id)
+                except FloodWait as fw:
+                    try:
+                        await worker_client.delete_messages(Config.LOG_CHANNEL, log_msg_down.id)
+                    except: 
+                        pass
+                except Exception:
+                    try:
+                        await worker_client.delete_messages(Config.LOG_CHANNEL, log_msg_down.id)
+                    except: 
+                        pass
 
         metadata_mode = await digital_botz.get_metadata_mode(user_id)
         if (metadata_mode):        
@@ -396,25 +406,56 @@ async def process_single_file(main_client, worker_client, user_id, file_msg, new
         
         try:
             async def perform_upload():
-                if not is_main_bot:
-                    if upload_type == "document":
-                        filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, file_name=new_filename, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                    elif upload_type == "video":
-                        filw = await uploader.send_video(Config.LOG_CHANNEL, video=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                    elif upload_type == "audio":
-                        filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                    
-                    await asyncio.sleep(2)
-                    await main_client.copy_message(user_id, Config.LOG_CHANNEL, filw.id)
-                    try: await main_client.delete_messages(Config.LOG_CHANNEL, filw.id)
-                    except: pass
-                else:
-                    if upload_type == "document":
-                        await main_client.send_document(user_id, document=file_to_upload, file_name=new_filename, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                    elif upload_type == "video":
-                        await main_client.send_video(user_id, video=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
-                    elif upload_type == "audio":
-                        await main_client.send_audio(user_id, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                filw = None
+                try:
+                    if not is_main_bot:
+                        if upload_type == "document":
+                            filw = await uploader.send_document(Config.LOG_CHANNEL, document=file_to_upload, file_name=new_filename, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        elif upload_type == "video":
+                            filw = await uploader.send_video(Config.LOG_CHANNEL, video=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        elif upload_type == "audio":
+                            filw = await uploader.send_audio(Config.LOG_CHANNEL, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        
+                        await asyncio.sleep(1.5)
+                        
+                        delivered = False
+                        while not delivered:
+                            try:
+                                await main_client.copy_message(user_id, Config.LOG_CHANNEL, filw.id)
+                                delivered = True
+                            except FloodWait as fw:
+                                await asyncio.sleep(fw.value)
+                            except Exception:
+                                try:
+                                    await uploader.copy_message(user_id, Config.LOG_CHANNEL, filw.id)
+                                    delivered = True
+                                except Exception:
+                                    delivered = True 
+                    else:
+                        if upload_type == "document":
+                            await main_client.send_document(user_id, document=file_to_upload, file_name=new_filename, thumb=ph_path, caption=caption, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        elif upload_type == "video":
+                            await main_client.send_video(user_id, video=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                        elif upload_type == "audio":
+                            await main_client.send_audio(user_id, audio=file_to_upload, file_name=new_filename, caption=caption, thumb=ph_path, duration=duration, progress=progress_for_pyrogram, progress_args=(UPLOAD_TEXT, rkn_processing, time.time()))
+                finally:
+                    if filw and not is_main_bot:
+                        for attempt in range(3):
+                            try:
+                                await main_client.delete_messages(Config.LOG_CHANNEL, filw.id)
+                                break
+                            except FloodWait:
+                                try:
+                                    await uploader.delete_messages(Config.LOG_CHANNEL, filw.id)
+                                    break
+                                except Exception:
+                                    pass
+                            except Exception:
+                                try:
+                                    await uploader.delete_messages(Config.LOG_CHANNEL, filw.id)
+                                    break
+                                except Exception:
+                                    pass
 
             if uploader == app:
                 try: await rkn_processing.edit("📤 **Wᴀɪᴛɪɴɢ ꜰᴏʀ Pʀᴇᴍɪᴜᴍ Sᴇꜱꜱɪᴏɴ...**")
