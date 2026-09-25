@@ -151,11 +151,11 @@ async def add_premium(client, message):
         return await message.reply_text("premium mode disabled ✅")
      
     if client.uploadlimit:
-        # --- 30-DAY ULTRAPRO SHORTCUT LOGIC ---
+        # --- 1-MONTH ULTRAPRO SHORTCUT LOGIC ---
         if len(message.command) == 2:
             user_id = int(message.command[1])
             plan_type = "UltraPro"
-            time_string = "30 days"
+            time_string = "1 month"
         elif len(message.command) >= 4:
             user_id = int(message.command[1])
             plan_type = message.command[2]
@@ -163,7 +163,7 @@ async def add_premium(client, message):
         else:
             return await message.reply_text(
                 "📜 **Usage:** `/addpremium user_id Plan_Type time`\n\n"
-                "💡 **Shortcut:** `/addpremium user_id` to instantly add 30 Days of UltraPro!\n\n"
+                "💡 **Shortcut:** `/addpremium user_id` to instantly add 1 month of UltraPro!\n\n"
                 "🔹 **Plan_Type:** `Pro`, `UltraPro`\n"
                 "⏱️ **Time Format:**\n"
                 "• `1 min` → minutes\n"
@@ -261,17 +261,17 @@ async def add_premium(client, message):
             pass
 
     else:
-        # --- 30-DAY SHORTCUT FOR NO-LIMIT SETUPS ---
+        # --- 1-MONTH SHORTCUT FOR NO-LIMIT SETUPS ---
         if len(message.command) == 2:
             user_id = int(message.command[1])
-            time_string = "30 days"
+            time_string = "1 month"
         elif len(message.command) >= 3:
             user_id = int(message.command[1])
             time_string = " ".join(message.command[2:])
         else:
             return await message.reply_text(
                 "📜 **Usage:** `/addpremium user_id time`\n\n"
-                "💡 **Shortcut:** `/addpremium user_id` to instantly add 30 Days of Premium!\n\n"
+                "💡 **Shortcut:** `/addpremium user_id` to instantly add 1 month of Premium!\n\n"
                 "⏱️ **Time Format:**\n"
                 "• `1 min` → minutes\n"
                 "• `1 hour` → hours\n"
