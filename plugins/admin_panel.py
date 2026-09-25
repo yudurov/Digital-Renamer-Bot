@@ -151,9 +151,19 @@ async def add_premium(client, message):
         return await message.reply_text("premium mode disabled ✅")
      
     if client.uploadlimit:
-        if len(message.command) < 4:
+        # --- 30-DAY ULTRAPRO SHORTCUT LOGIC ---
+        if len(message.command) == 2:
+            user_id = int(message.command[1])
+            plan_type = "UltraPro"
+            time_string = "30 days"
+        elif len(message.command) >= 4:
+            user_id = int(message.command[1])
+            plan_type = message.command[2]
+            time_string = " ".join(message.command[3:])
+        else:
             return await message.reply_text(
                 "📜 **Usage:** `/addpremium user_id Plan_Type time`\n\n"
+                "💡 **Shortcut:** `/addpremium user_id` to instantly add 30 Days of UltraPro!\n\n"
                 "🔹 **Plan_Type:** `Pro`, `UltraPro`\n"
                 "⏱️ **Time Format:**\n"
                 "• `1 min` → minutes\n"
@@ -165,14 +175,10 @@ async def add_premium(client, message):
                 "📃 **Example:** `/addpremium 6318135266 Pro 1 month`",
                 quote=True
             )
-
-        user_id = int(message.command[1])
-        plan_type = message.command[2]
+        # ----------------------------------------
 
         if plan_type not in ["Pro", "UltraPro"]:
             return await message.reply_text("🧩 Invalid Plan Type. Please use '`Pro`' or '`UltraPro`' ", quote=True)
-
-        time_string = " ".join(message.command[3:])
 
         time_zone = datetime.datetime.now(pytz.timezone("Africa/Nairobi"))
         current_time = time_zone.strftime("%d-%m-%Y\n⏱️ ᴊᴏɪɴɪɴɢ ᴛɪᴍᴇ : %I:%M:%S %p")
@@ -255,9 +261,17 @@ async def add_premium(client, message):
             pass
 
     else:
-        if len(message.command) < 3:
+        # --- 30-DAY SHORTCUT FOR NO-LIMIT SETUPS ---
+        if len(message.command) == 2:
+            user_id = int(message.command[1])
+            time_string = "30 days"
+        elif len(message.command) >= 3:
+            user_id = int(message.command[1])
+            time_string = " ".join(message.command[2:])
+        else:
             return await message.reply_text(
                 "📜 **Usage:** `/addpremium user_id time`\n\n"
+                "💡 **Shortcut:** `/addpremium user_id` to instantly add 30 Days of Premium!\n\n"
                 "⏱️ **Time Format:**\n"
                 "• `1 min` → minutes\n"
                 "• `1 hour` → hours\n"
@@ -268,9 +282,7 @@ async def add_premium(client, message):
                 "📃 **Example:** `/addpremium 6318135266 1 month`",
                 quote=True
             )
-
-        user_id = int(message.command[1])
-        time_string = " ".join(message.command[2:])
+        # -------------------------------------------
 
         time_zone = datetime.datetime.now(pytz.timezone("Africa/Nairobi"))
         current_time = time_zone.strftime("%d-%m-%Y\n⏱️ ᴊᴏɪɴɪɴɢ ᴛɪᴍᴇ : %I:%M:%S %p")
