@@ -246,7 +246,7 @@ async def doc(client, update):
 
     user_id = int(update.message.chat.id) 
     new_name = update.message.text
-    new_filename_ = new_name.split(":-")[1].strip().replace("`","")
+    new_filename_ = new_name.split(":-", 1)[1].strip().replace("`","")
     type = update.data.split("_")[1]
     file_msg = update.message.reply_to_message
     
