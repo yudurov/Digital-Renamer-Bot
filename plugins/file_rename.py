@@ -96,6 +96,17 @@ async def resume_all_tasks(client):
         pass
 
     try:
+        # Batch-delete orphaned media in the Log Channel on startup (ignores text messages)
+        log_msgs = []
+        async for old_log in client.get_chat_history(Config.LOG_CHANNEL, limit=50):
+            if old_log.media:
+                log_msgs.append(old_log.id)
+        if log_msgs:
+            await client.delete_messages(Config.LOG_CHANNEL, log_msgs)
+    except Exception: 
+        pass
+
+    try:
         tasks = await Task.find_all().to_list()
         count = 0
         for task in tasks:
