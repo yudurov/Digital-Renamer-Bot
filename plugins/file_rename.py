@@ -196,7 +196,7 @@ async def rename_start(client, message):
                 f"📦 Media Size: {filesize}\n"
                 f"📊 Your Used Daily Limit: {humanbytes(used)}\n\n"
                 f"You have only **{humanbytes(remain)}** left.\nPlease, Buy Premium Plan.",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🪪 UᴘɢʀᴀᴅE", callback_data="plans")]])
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🪪 UᴘɢʀᴀᴅE", callback_data="upgrade")]])
             )
 
     if await digital_botz.has_premium_access(user_id) and client.premium:
@@ -211,7 +211,7 @@ async def rename_start(client, message):
             await send_media_info()
     else:
         if rkn_file.file_size > 2000 * 1024 * 1024 and client.premium:
-            btn = [[InlineKeyboardButton("💎 Vɪᴇᴡ Pʀᴇᴍɪᴜᴍ Pʟᴀɴꜱ", callback_data="plans")]]
+            btn = [[InlineKeyboardButton("💎 Vɪᴇᴡ Pʀᴇᴍɪᴜᴍ Pʟᴀɴꜱ", callback_data="upgrade")]]
             return await message.reply_text(
                 "⚠️ **Fɪʟᴇ Tᴏᴏ Lᴀʀɢᴇ!**\n\nFree users can only rename files up to **2GB**.\nUpgrade to Premium to upload files up to **4GB+**!",
                 reply_markup=InlineKeyboardMarkup(btn)
