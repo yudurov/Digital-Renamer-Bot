@@ -211,7 +211,11 @@ async def rename_start(client, message):
             await send_media_info()
     else:
         if rkn_file.file_size > 2000 * 1024 * 1024 and client.premium:
-            return await message.reply_text("‼️Hi, If you want to rename 2GB+ files, you’ll need to buy premium. See /plans")
+            btn = [[InlineKeyboardButton("💎 Vɪᴇᴡ Pʀᴇᴍɪᴜᴍ Pʟᴀɴꜱ", callback_data="plans")]]
+            return await message.reply_text(
+                "⚠️ **Fɪʟᴇ Tᴏᴏ Lᴀʀɢᴇ!**\n\nFree users can only rename files up to **2GB**.\nUpgrade to Premium to upload files up to **4GB+**!",
+                reply_markup=InlineKeyboardMarkup(btn)
+            )
 
         try:
             await send_media_info()
