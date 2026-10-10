@@ -20,6 +20,7 @@ from config import Config
 from plugins import __version__
 from helper.utils import humanbytes
 from helper.database import digital_botz
+from pyrogram.types import Message
 
 # Ensure templates directory exists
 os.makedirs('templates', exist_ok=True)
@@ -35,15 +36,31 @@ last_dl_speed = 0
 # --- 24-HOUR ROLLING RENAME TRACKER ---
 recent_renames = deque()
 
-# ⚠️ INVISIBLE HOOK: Intercept successful uploads without modifying file_rename.py
-original_update_limit = digital_botz.update_daily_limit
+# ⚠️ INVISIBLE HOOK: Intercept Pyrogram's edit message instead of the database!
+# This quietly listens for "Uploaded Successfully" and adds +1 to the dashboard counter.
+if not hasattr(Message, "_hooked_for_renames"):
+    original_edit = getattr(Message, "edit", None)
+    original_edit_text = getattr(Message, "edit_text", None)
 
-async def hooked_update_limit(user_id, size):
-    recent_renames.append(time.time()) # Log the timestamp of the successful rename
-    return await original_update_limit(user_id, size) # Pass it back to the database normally
+    async def hooked_edit_wrapper(self, text, *args, **kwargs):
+        if isinstance(text, str) and "Uploaded Successfully" in text:
+            recent_renames.append(time.time())
+        if original_edit:
+            return await original_edit(self, text, *args, **kwargs)
 
-# Override the database method in memory
-digital_botz.update_daily_limit = hooked_update_limit
+    async def hooked_edit_text_wrapper(self, text, *args, **kwargs):
+        if isinstance(text, str) and "Uploaded Successfully" in text:
+            recent_renames.append(time.time())
+        if original_edit_text:
+            return await original_edit_text(self, text, *args, **kwargs)
+
+    if original_edit:
+        Message.edit = hooked_edit_wrapper
+    if original_edit_text:
+        Message.edit_text = hooked_edit_text_wrapper
+    
+    Message._hooked_for_renames = True
+
 
 async def get_status():
     """Fetches and formats system and bot statistics."""
