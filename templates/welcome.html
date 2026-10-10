@@ -474,14 +474,14 @@
                         </div>
                     </div>
 
-                    <div class="speed-header" style="margin-top: 1.25rem; color: var(--text-secondary);">⏱️ AVERAGE (1 MIN)</div>
+                    <div class="speed-header" style="margin-top: 1.25rem; color: var(--text-secondary);">⏱️ TOTAL RENAMES (24H)</div>
                     <div class="speed-grid-full">
                         <div class="speed-row" style="border-color: rgba(139, 92, 246, 0.25);">
                             <span class="speed-label">
-                                <i class="fas fa-arrow-up" style="color: var(--accent-purple); margin-right: 4px;"></i> 
-                                <i class="fas fa-arrow-down" style="color: var(--accent-purple);"></i>
+                                <i class="fas fa-check-circle" style="color: var(--accent-purple); margin-right: 4px;"></i> 
+                                Files Successfully Renamed
                             </span>
-                            <span class="speed-value" id="val-avg_speed">{{avg_speed}}</span>
+                            <span class="speed-value" id="val-renames_24h">{{renames_24h}}</span>
                         </div>
                     </div>
                 </div>
@@ -568,14 +568,14 @@
             </div>
             <div class="actions">
                 <a href="{{telegram_link}}" class="btn btn-tg"><i class="fab fa-telegram-plane"></i> Updates</a>
-                <a href="https://github.com/DigitalBotz/Digital-Rename-Bot" class="btn btn-gh"><i class="fab fa-github"></i> Repository</a>
+                <a href="{{github_link}}" class="btn btn-gh"><i class="fab fa-github"></i> Repository</a>
             </div>
         </div>
 
     </main>
 
     <footer>
-        <p>© 2026 NAm | Powered by <a href="https://t.me/xspes">NAm</a> | Repo: <a href="https://github.com/DigitalBotz/Digital-Rename-Bot">Digital-Rename-Bot</a></p>
+        <p>© 2026 NAm | Powered by <a href="https://t.me/xspes">NAm</a> | Repo: <a href="{{github_link}}">Digital-Rename-Bot</a></p>
         <p style="margin-top: 0.5rem; font-size: 0.75rem;">Special Thanks To <a href="https://t.me/Shivshankar_Official">Shivshankar Official</a></p>
     </footer>
 
@@ -605,7 +605,7 @@
                 document.getElementById('val-active_tasks').innerText = data.active_tasks;
                 document.getElementById('val-up_speed').innerText = data.up_speed;
                 document.getElementById('val-dl_speed').innerText = data.dl_speed;
-                document.getElementById('val-avg_speed').innerText = data.avg_speed;
+                document.getElementById('val-renames_24h').innerText = data.renames_24h;
 
                 // Fleet
                 document.getElementById('val-total_workers').innerText = data.total_workers;
